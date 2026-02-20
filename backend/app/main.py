@@ -33,8 +33,14 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start/stop the background scraper scheduler."""
+    """Start/stop the background scraper scheduler + auto-seed demo data."""
     from app.scraper.scheduler import run_full_scan
+
+    # ── Auto-seed: if changes table is empty, populate demo data ──
+    try:
+        await _auto_seed_if_empty()
+    except Exception as e:
+        logger.warning(f"Auto-seed skipped: {e}")
 
     scheduler.add_job(
         run_full_scan,
@@ -52,6 +58,107 @@ async def lifespan(app: FastAPI):
 
     scheduler.shutdown(wait=False)
     logger.info("Scraper scheduler stopped")
+
+
+async def _auto_seed_if_empty():
+    """Insert demo changes on first boot so the dashboard is never empty."""
+    import hashlib
+    from datetime import datetime as _dt, timedelta, timezone as _tz
+
+    from sqlalchemy import select as _sel, func as _fn
+
+    from app.database import async_session
+    from app.models import Change, ChangeType, Severity, Snapshot, Service
+
+    async with async_session() as db:
+        count = (await db.execute(_sel(_fn.count()).select_from(Change))).scalar() or 0
+        if count > 0:
+            logger.info(f"Auto-seed: {count} changes already exist — skipping")
+            return
+
+        logger.info("Auto-seed: changes table empty — inserting demo data")
+
+        DEMO = [
+            ("stripe", ChangeType.TOS_UPDATE, Severity.MAJOR,
+             "Stripe updated payment dispute and liability clauses",
+             "Stripe revised Section 14 (Disputes and Reversals) to reduce the window "
+             "for merchants to respond to chargebacks from 10 days to 7 days. "
+             "New language also clarifies that Stripe may debit funds from your account "
+             "immediately upon receiving a dispute claim, without waiting for resolution. "
+             "The liability cap in Section 19 was lowered from 12 months of fees to 3 months.",
+             3, 142, 87, 0),
+            ("openai", ChangeType.TOS_UPDATE, Severity.CRITICAL,
+             "OpenAI expanded rights to use API outputs for model training",
+             "OpenAI's updated Terms now explicitly state that outputs generated via the API "
+             "(including completions, embeddings, and fine-tuning outputs) may be used to "
+             "improve and train OpenAI models unless you have a Zero Data Retention agreement. "
+             "Enterprise customers are unaffected but standard API users should review their "
+             "data handling obligations. Section 3(c) was significantly rewritten.",
+             5, 318, 201, 0),
+            ("github", ChangeType.PRIVACY_UPDATE, Severity.MINOR,
+             "GitHub added Copilot telemetry data collection details",
+             "GitHub updated its Privacy Statement to add a new subsection on GitHub Copilot "
+             "telemetry: keystroke timings, suggestion acceptance rates, and editor context "
+             "are now explicitly listed as collected data. Users can opt out via Copilot "
+             "settings. The retention period for this data is stated as 24 months.",
+             2, 94, 12, 1),
+            ("slack", ChangeType.TOS_UPDATE, Severity.MAJOR,
+             "Slack introduced AI features clauses and data processing changes",
+             "Slack's updated Terms introduce a new Section 8 (Slack AI) permitting Slack "
+             "to process customer data to deliver AI-powered features. Workspace admins can "
+             "disable this via settings, but it is enabled by default for all plans. "
+             "The DPA (Data Processing Agreement) was also updated with new sub-processor "
+             "entries including two new AWS regions.",
+             4, 267, 43, 1),
+            ("aws", ChangeType.PRIVACY_UPDATE, Severity.PATCH,
+             "AWS updated contact information and data controller details",
+             "Minor update to the AWS Privacy Notice: updated mailing address for the EU "
+             "data controller (Amazon Web Services EMEA SARL) and added two new regional "
+             "contact points for South Korea and Brazil. No substantive policy changes.",
+             1, 38, 22, 2),
+            ("anthropic", ChangeType.TOS_UPDATE, Severity.MAJOR,
+             "Anthropic added commercial use restrictions for Claude API",
+             "New Section 4(d) prohibits using Claude outputs to build competing foundation "
+             "models or to create training datasets for AI systems without explicit written "
+             "consent from Anthropic. This applies to all API tiers. The acceptable use policy "
+             "was also expanded to include 10 new prohibited categories including autonomous "
+             "weapons and large-scale behavior manipulation.",
+             6, 489, 130, 2),
+        ]
+
+        FAKE_OLD = (
+            "These Terms of Service govern your use of our platform. "
+            "By using our services you agree to these terms. "
+            "We reserve the right to modify these terms at any time. "
+            "Your continued use constitutes acceptance of any changes. " * 50
+        )
+
+        for slug, ctype, sev, title, summary, sects, w_add, w_rem, days_ago in DEMO:
+            r = await db.execute(_sel(Service).where(Service.slug == slug))
+            svc = r.scalar_one_or_none()
+            if not svc:
+                continue
+
+            detected = _dt.now(_tz.utc) - timedelta(days=days_ago)
+            fake_new = FAKE_OLD + f"\n\nUPDATED {title} — effective {detected.date()}."
+            old_h = hashlib.sha256(FAKE_OLD.encode()).hexdigest()
+            new_h = hashlib.sha256(fake_new.encode()).hexdigest()
+
+            snap_old = Snapshot(service_id=svc.id, url=svc.tos_url or "", content_hash=old_h, content=FAKE_OLD, word_count=len(FAKE_OLD.split()))
+            snap_new = Snapshot(service_id=svc.id, url=svc.tos_url or "", content_hash=new_h, content=fake_new, word_count=len(fake_new.split()))
+            db.add(snap_old)
+            db.add(snap_new)
+            await db.flush()
+
+            db.add(Change(
+                service_id=svc.id, snapshot_old_id=snap_old.id, snapshot_new_id=snap_new.id,
+                change_type=ctype, severity=sev, title=title, summary=summary,
+                diff_html=f"<del>{FAKE_OLD[:200]}</del><ins>{fake_new[:200]}</ins>",
+                sections_changed=sects, words_added=w_add, words_removed=w_rem, detected_at=detected,
+            ))
+
+        await db.commit()
+        logger.info(f"Auto-seed: inserted {len(DEMO)} demo changes")
 
 
 # ── App ──────────────────────────────────────────────────────
