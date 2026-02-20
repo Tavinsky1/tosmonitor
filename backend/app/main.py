@@ -109,7 +109,7 @@ async def trigger_scan():
 
 
 @app.post("/api/admin/seed-demo")
-async def seed_demo_changes():
+async def seed_demo_changes(reset: bool = False):
     """
     Insert realistic demo change records so the dashboard isn't empty.
     Safe to call multiple times — skips services that already have changes.
@@ -118,7 +118,7 @@ async def seed_demo_changes():
     import uuid as _uuid
     from datetime import datetime as _dt, timedelta, timezone as _tz
 
-    from sqlalchemy import select as _select
+    from sqlalchemy import select as _select, delete as _delete
 
     from app.database import async_session
     from app.models import Change, ChangeType, Severity, Snapshot, Service
@@ -139,7 +139,7 @@ async def seed_demo_changes():
             "sections_changed": 3,
             "words_added": 142,
             "words_removed": 87,
-            "days_ago": 2,
+            "days_ago": 0,
         },
         {
             "slug": "openai",
@@ -156,7 +156,7 @@ async def seed_demo_changes():
             "sections_changed": 5,
             "words_added": 318,
             "words_removed": 201,
-            "days_ago": 5,
+            "days_ago": 0,
         },
         {
             "slug": "github",
@@ -172,7 +172,7 @@ async def seed_demo_changes():
             "sections_changed": 2,
             "words_added": 94,
             "words_removed": 12,
-            "days_ago": 8,
+            "days_ago": 1,
         },
         {
             "slug": "slack",
@@ -189,7 +189,7 @@ async def seed_demo_changes():
             "sections_changed": 4,
             "words_added": 267,
             "words_removed": 43,
-            "days_ago": 12,
+            "days_ago": 1,
         },
         {
             "slug": "aws",
@@ -204,7 +204,7 @@ async def seed_demo_changes():
             "sections_changed": 1,
             "words_added": 38,
             "words_removed": 22,
-            "days_ago": 14,
+            "days_ago": 2,
         },
         {
             "slug": "anthropic",
@@ -221,7 +221,7 @@ async def seed_demo_changes():
             "sections_changed": 6,
             "words_added": 489,
             "words_removed": 130,
-            "days_ago": 18,
+            "days_ago": 2,
         },
     ]
 
@@ -236,6 +236,17 @@ async def seed_demo_changes():
     skipped = 0
 
     async with async_session() as db:
+        if reset:
+            # Delete all existing changes and their snapshots for demo slugs
+            demo_slugs = [d["slug"] for d in DEMO]
+            for slug in demo_slugs:
+                r = await db.execute(_select(Service).where(Service.slug == slug))
+                svc = r.scalar_one_or_none()
+                if svc:
+                    await db.execute(_delete(Change).where(Change.service_id == svc.id))
+                    await db.execute(_delete(Snapshot).where(Snapshot.service_id == svc.id))
+            await db.commit()
+
         for demo in DEMO:
             # Check if this service already has changes
             svc_result = await db.execute(
