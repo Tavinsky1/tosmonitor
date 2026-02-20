@@ -106,3 +106,195 @@ async def trigger_scan():
         "status": "completed",
         "changes_detected": len(changes),
     }
+
+
+@app.post("/api/admin/seed-demo")
+async def seed_demo_changes():
+    """
+    Insert realistic demo change records so the dashboard isn't empty.
+    Safe to call multiple times — skips services that already have changes.
+    """
+    import hashlib
+    import uuid as _uuid
+    from datetime import datetime as _dt, timedelta, timezone as _tz
+
+    from sqlalchemy import select as _select
+
+    from app.database import async_session
+    from app.models import Change, ChangeType, Severity, Snapshot, Service
+
+    DEMO = [
+        {
+            "slug": "stripe",
+            "change_type": ChangeType.TOS_UPDATE,
+            "severity": Severity.MAJOR,
+            "title": "Stripe updated payment dispute and liability clauses",
+            "summary": (
+                "Stripe revised Section 14 (Disputes and Reversals) to reduce the window "
+                "for merchants to respond to chargebacks from 10 days to 7 days. "
+                "New language also clarifies that Stripe may debit funds from your account "
+                "immediately upon receiving a dispute claim, without waiting for resolution. "
+                "The liability cap in Section 19 was lowered from 12 months of fees to 3 months."
+            ),
+            "sections_changed": 3,
+            "words_added": 142,
+            "words_removed": 87,
+            "days_ago": 2,
+        },
+        {
+            "slug": "openai",
+            "change_type": ChangeType.TOS_UPDATE,
+            "severity": Severity.CRITICAL,
+            "title": "OpenAI expanded rights to use API outputs for model training",
+            "summary": (
+                "OpenAI's updated Terms now explicitly state that outputs generated via the API "
+                "(including completions, embeddings, and fine-tuning outputs) may be used to "
+                "improve and train OpenAI models unless you have a Zero Data Retention agreement. "
+                "Enterprise customers are unaffected but standard API users should review their "
+                "data handling obligations. Section 3(c) was significantly rewritten."
+            ),
+            "sections_changed": 5,
+            "words_added": 318,
+            "words_removed": 201,
+            "days_ago": 5,
+        },
+        {
+            "slug": "github",
+            "change_type": ChangeType.PRIVACY_UPDATE,
+            "severity": Severity.MINOR,
+            "title": "GitHub added Copilot telemetry data collection details",
+            "summary": (
+                "GitHub updated its Privacy Statement to add a new subsection on GitHub Copilot "
+                "telemetry: keystroke timings, suggestion acceptance rates, and editor context "
+                "are now explicitly listed as collected data. Users can opt out via Copilot "
+                "settings. The retention period for this data is stated as 24 months."
+            ),
+            "sections_changed": 2,
+            "words_added": 94,
+            "words_removed": 12,
+            "days_ago": 8,
+        },
+        {
+            "slug": "slack",
+            "change_type": ChangeType.TOS_UPDATE,
+            "severity": Severity.MAJOR,
+            "title": "Slack introduced AI features clauses and data processing changes",
+            "summary": (
+                "Slack's updated Terms introduce a new Section 8 (Slack AI) permitting Slack "
+                "to process customer data to deliver AI-powered features. Workspace admins can "
+                "disable this via settings, but it is enabled by default for all plans. "
+                "The DPA (Data Processing Agreement) was also updated with new sub-processor "
+                "entries including two new AWS regions."
+            ),
+            "sections_changed": 4,
+            "words_added": 267,
+            "words_removed": 43,
+            "days_ago": 12,
+        },
+        {
+            "slug": "aws",
+            "change_type": ChangeType.PRIVACY_UPDATE,
+            "severity": Severity.PATCH,
+            "title": "AWS updated contact information and data controller details",
+            "summary": (
+                "Minor update to the AWS Privacy Notice: updated mailing address for the EU "
+                "data controller (Amazon Web Services EMEA SARL) and added two new regional "
+                "contact points for South Korea and Brazil. No substantive policy changes."
+            ),
+            "sections_changed": 1,
+            "words_added": 38,
+            "words_removed": 22,
+            "days_ago": 14,
+        },
+        {
+            "slug": "anthropic",
+            "change_type": ChangeType.TOS_UPDATE,
+            "severity": Severity.MAJOR,
+            "title": "Anthropic added commercial use restrictions for Claude API",
+            "summary": (
+                "New Section 4(d) prohibits using Claude outputs to build competing foundation "
+                "models or to create training datasets for AI systems without explicit written "
+                "consent from Anthropic. This applies to all API tiers. The acceptable use policy "
+                "was also expanded to include 10 new prohibited categories including autonomous "
+                "weapons and large-scale behavior manipulation."
+            ),
+            "sections_changed": 6,
+            "words_added": 489,
+            "words_removed": 130,
+            "days_ago": 18,
+        },
+    ]
+
+    FAKE_OLD = (
+        "These Terms of Service govern your use of our platform. "
+        "By using our services you agree to these terms. "
+        "We reserve the right to modify these terms at any time. "
+        "Your continued use constitutes acceptance of any changes. " * 50
+    )
+
+    added = 0
+    skipped = 0
+
+    async with async_session() as db:
+        for demo in DEMO:
+            # Check if this service already has changes
+            svc_result = await db.execute(
+                _select(Service).where(Service.slug == demo["slug"])
+            )
+            service = svc_result.scalar_one_or_none()
+            if not service:
+                skipped += 1
+                continue
+
+            existing = await db.execute(
+                _select(Change).where(Change.service_id == service.id).limit(1)
+            )
+            if existing.scalar_one_or_none():
+                skipped += 1
+                continue
+
+            detected = _dt.now(_tz.utc) - timedelta(days=demo["days_ago"])
+            fake_new = FAKE_OLD + f"\n\nUPDATED {demo['title']} — effective {detected.date()}."
+
+            old_hash = hashlib.sha256(FAKE_OLD.encode()).hexdigest()
+            new_hash = hashlib.sha256(fake_new.encode()).hexdigest()
+
+            snap_old = Snapshot(
+                service_id=service.id,
+                url=service.tos_url or f"https://example.com/{demo['slug']}/terms",
+                content_hash=old_hash,
+                content=FAKE_OLD,
+                word_count=len(FAKE_OLD.split()),
+            )
+            snap_new = Snapshot(
+                service_id=service.id,
+                url=service.tos_url or f"https://example.com/{demo['slug']}/terms",
+                content_hash=new_hash,
+                content=fake_new,
+                word_count=len(fake_new.split()),
+            )
+            db.add(snap_old)
+            db.add(snap_new)
+            await db.flush()
+
+            change = Change(
+                service_id=service.id,
+                snapshot_old_id=snap_old.id,
+                snapshot_new_id=snap_new.id,
+                change_type=demo["change_type"],
+                severity=demo["severity"],
+                title=demo["title"],
+                summary=demo["summary"],
+                diff_html=f"<del>{FAKE_OLD[:200]}</del><ins>{fake_new[:200]}</ins>",
+                sections_changed=demo["sections_changed"],
+                words_added=demo["words_added"],
+                words_removed=demo["words_removed"],
+                detected_at=detected,
+            )
+            db.add(change)
+            await db.commit()
+            added += 1
+
+    return {"status": "ok", "added": added, "skipped": skipped}
+
+
