@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth, changes, services
+from app.routers import auth, changes, services, billing
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(services.router, prefix="/api")
 app.include_router(changes.router, prefix="/api")
+app.include_router(billing.router, prefix="/api")
 
 
 # ── Health check ─────────────────────────────────────────────

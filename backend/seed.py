@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select
 from app.config import settings
 from app.models import Service
 
@@ -148,15 +149,225 @@ DEFAULT_SERVICES = [
         "tos_url": "https://legal.hubspot.com/terms-of-service",
         "privacy_url": "https://legal.hubspot.com/privacy-policy",
     },
+    # ── Productivity ─────────────────────────────────────────────────────────
+    {
+        "name": "Linear",
+        "slug": "linear",
+        "category": "Productivity",
+        "tos_url": "https://linear.app/terms",
+        "privacy_url": "https://linear.app/privacy",
+    },
+    {
+        "name": "Figma",
+        "slug": "figma",
+        "category": "Design",
+        "tos_url": "https://www.figma.com/tos/",
+        "privacy_url": "https://www.figma.com/privacy/",
+    },
+    {
+        "name": "Airtable",
+        "slug": "airtable",
+        "category": "Productivity",
+        "tos_url": "https://www.airtable.com/tos",
+        "privacy_url": "https://www.airtable.com/privacy",
+    },
+    {
+        "name": "Asana",
+        "slug": "asana",
+        "category": "Productivity",
+        "tos_url": "https://asana.com/terms",
+        "privacy_url": "https://asana.com/privacy",
+    },
+    {
+        "name": "Atlassian",
+        "slug": "atlassian",
+        "category": "Productivity",
+        "tos_url": "https://www.atlassian.com/legal/cloud-terms-of-service",
+        "privacy_url": "https://www.atlassian.com/legal/privacy-policy",
+    },
+    # ── Cloud / Hosting ──────────────────────────────────────────────────────
+    {
+        "name": "Microsoft Azure",
+        "slug": "azure",
+        "category": "Cloud",
+        "tos_url": "https://azure.microsoft.com/en-us/support/legal/",
+        "privacy_url": "https://privacy.microsoft.com/en-us/privacystatement",
+    },
+    {
+        "name": "DigitalOcean",
+        "slug": "digitalocean",
+        "category": "Cloud",
+        "tos_url": "https://www.digitalocean.com/legal/terms-of-service-agreement",
+        "privacy_url": "https://www.digitalocean.com/legal/privacy-policy",
+    },
+    {
+        "name": "Netlify",
+        "slug": "netlify",
+        "category": "DevOps",
+        "tos_url": "https://www.netlify.com/legal/terms-of-use/",
+        "privacy_url": "https://www.netlify.com/privacy/",
+    },
+    {
+        "name": "Railway",
+        "slug": "railway",
+        "category": "Cloud",
+        "tos_url": "https://railway.app/legal/terms",
+        "privacy_url": "https://railway.app/legal/privacy",
+    },
+    # ── Communications ───────────────────────────────────────────────────────
+    {
+        "name": "Zoom",
+        "slug": "zoom",
+        "category": "Communications",
+        "tos_url": "https://explore.zoom.us/en/terms/",
+        "privacy_url": "https://explore.zoom.us/en/privacy/",
+    },
+    {
+        "name": "SendGrid",
+        "slug": "sendgrid",
+        "category": "Communications",
+        "tos_url": "https://sendgrid.com/policies/tos/",
+        "privacy_url": "https://sendgrid.com/policies/privacy/",
+    },
+    {
+        "name": "Mailchimp",
+        "slug": "mailchimp",
+        "category": "Marketing",
+        "tos_url": "https://mailchimp.com/legal/terms/",
+        "privacy_url": "https://mailchimp.com/legal/privacy/",
+    },
+    # ── Observability / DevOps ───────────────────────────────────────────────
+    {
+        "name": "Sentry",
+        "slug": "sentry",
+        "category": "DevOps",
+        "tos_url": "https://sentry.io/terms/",
+        "privacy_url": "https://sentry.io/privacy/",
+    },
+    {
+        "name": "PagerDuty",
+        "slug": "pagerduty",
+        "category": "DevOps",
+        "tos_url": "https://www.pagerduty.com/terms-of-service/",
+        "privacy_url": "https://www.pagerduty.com/privacy-policy/",
+    },
+    # ── Analytics ────────────────────────────────────────────────────────────
+    {
+        "name": "Mixpanel",
+        "slug": "mixpanel",
+        "category": "Analytics",
+        "tos_url": "https://mixpanel.com/legal/terms-of-use/",
+        "privacy_url": "https://mixpanel.com/legal/privacy-policy/",
+    },
+    {
+        "name": "Segment",
+        "slug": "segment",
+        "category": "Analytics",
+        "tos_url": "https://www.twilio.com/en-us/legal/tos",
+        "privacy_url": "https://www.twilio.com/en-us/legal/privacy",
+    },
+    # ── Auth / Identity ──────────────────────────────────────────────────────
+    {
+        "name": "Okta",
+        "slug": "okta",
+        "category": "Auth",
+        "tos_url": "https://www.okta.com/agreements/",
+        "privacy_url": "https://www.okta.com/privacy-policy/",
+    },
+    # ── CRM / Support ────────────────────────────────────────────────────────
+    {
+        "name": "Salesforce",
+        "slug": "salesforce",
+        "category": "CRM",
+        "tos_url": "https://www.salesforce.com/company/legal/agreements/",
+        "privacy_url": "https://www.salesforce.com/company/privacy/",
+    },
+    {
+        "name": "Zendesk",
+        "slug": "zendesk",
+        "category": "Support",
+        "tos_url": "https://www.zendesk.com/company/agreements-and-terms/main-services-agreement/",
+        "privacy_url": "https://www.zendesk.com/company/agreements-and-terms/privacy-notices/",
+    },
+    {
+        "name": "Intercom",
+        "slug": "intercom",
+        "category": "Support",
+        "tos_url": "https://www.intercom.com/legal/terms-and-policies",
+        "privacy_url": "https://www.intercom.com/legal/privacy",
+    },
+    # ── Payments ─────────────────────────────────────────────────────────────
+    {
+        "name": "PayPal",
+        "slug": "paypal",
+        "category": "Payments",
+        "tos_url": "https://www.paypal.com/us/legalhub/useragreement-full",
+        "privacy_url": "https://www.paypal.com/us/legalhub/privacy-full",
+    },
+    # ── AI / ML ──────────────────────────────────────────────────────────────
+    {
+        "name": "Mistral AI",
+        "slug": "mistral",
+        "category": "AI / ML",
+        "tos_url": "https://mistral.ai/terms/",
+        "privacy_url": "https://mistral.ai/privacy/",
+    },
+    {
+        "name": "Replicate",
+        "slug": "replicate",
+        "category": "AI / ML",
+        "tos_url": "https://replicate.com/terms",
+        "privacy_url": "https://replicate.com/privacy",
+    },
+    {
+        "name": "Cohere",
+        "slug": "cohere",
+        "category": "AI / ML",
+        "tos_url": "https://cohere.com/terms-of-use",
+        "privacy_url": "https://cohere.com/privacy",
+    },
+    # ── Database / Storage ───────────────────────────────────────────────────
+    {
+        "name": "PlanetScale",
+        "slug": "planetscale",
+        "category": "Database",
+        "tos_url": "https://planetscale.com/legal/siteterms",
+        "privacy_url": "https://planetscale.com/legal/privacy",
+    },
+    {
+        "name": "Redis Cloud",
+        "slug": "redis-cloud",
+        "category": "Database",
+        "tos_url": "https://redis.io/legal/cloud-tos/",
+        "privacy_url": "https://redis.io/legal/privacy-policy/",
+    },
+    {
+        "name": "Pinecone",
+        "slug": "pinecone",
+        "category": "Database",
+        "tos_url": "https://www.pinecone.io/terms/",
+        "privacy_url": "https://www.pinecone.io/privacy/",
+    },
 ]
 
 
 async def seed():
-    engine = create_async_engine(settings.DATABASE_URL, echo=True)
+    engine = create_async_engine(settings.DATABASE_URL, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    added = 0
+    skipped = 0
 
     async with async_session() as session:
         for svc in DEFAULT_SERVICES:
+            result = await session.execute(
+                select(Service).where(Service.slug == svc["slug"])
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                skipped += 1
+                continue
+
             service = Service(
                 name=svc["name"],
                 slug=svc["slug"],
@@ -166,18 +377,14 @@ async def seed():
                 is_active=True,
             )
             session.add(service)
+            try:
+                await session.commit()
+                added += 1
+            except Exception:
+                await session.rollback()
+                skipped += 1
 
-        try:
-            await session.commit()
-            print(f"✅ Seeded {len(DEFAULT_SERVICES)} services")
-        except Exception as e:
-            await session.rollback()
-            # ON CONFLICT — services already exist, that's fine
-            if "unique" in str(e).lower() or "duplicate" in str(e).lower() or "already" in str(e).lower():
-                print("✅ Services already seeded — skipping")
-            else:
-                print(f"⚠️  Seed failed: {e}")
-
+    print(f"✅ Seed complete — {added} added, {skipped} already existed")
     await engine.dispose()
 
 
