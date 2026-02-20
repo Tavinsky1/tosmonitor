@@ -32,6 +32,9 @@ class Settings(BaseSettings):
         # asyncpg uses ?ssl=require, not ?sslmode=require
         v = v.replace("sslmode=require", "ssl=require")
         v = v.replace("sslmode=prefer", "ssl=prefer")
+        # channel_binding is a psql-only param, asyncpg doesn't support it
+        import re
+        v = re.sub(r"[&?]channel_binding=[^&]*", "", v)
         return v
 
     # ── Auth ────────────────────────────────────────────────
