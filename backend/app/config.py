@@ -5,6 +5,7 @@ Configuration — loaded from environment / .env file.
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -17,6 +18,16 @@ class Settings(BaseSettings):
 
     # ── Database ────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://tos:tos@localhost:5432/tosmonitor"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Normalize Render's postgres:// URL to postgresql+asyncpg://."""
+        if v.startswith("postgres://"):
+            v = "postgresql+asyncpg://" + v[len("postgres://"):]
+        elif v.startswith("postgresql://") and "+asyncpg" not in v:
+            v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
     # ── Auth ────────────────────────────────────────────────
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"

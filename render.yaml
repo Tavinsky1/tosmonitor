@@ -1,0 +1,58 @@
+services:
+  # ── Backend API ──────────────────────────────────────────
+  - type: web
+    name: tosmonitor-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tosmonitor-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 10080
+      - key: APP_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: alerts@tosmonitor.com
+      - key: SCRAPE_INTERVAL_HOURS
+        value: 6
+      - key: SALES_AGENT_ENABLED
+        value: false
+    healthCheckPath: /api/health
+
+  # ── Frontend ─────────────────────────────────────────────
+  - type: web
+    name: tosmonitor-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false   # Set this to https://tosmonitor-api.onrender.com after deploy
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: tosmonitor-db
+    databaseName: tosmonitor
+    user: tos
+    plan: free
