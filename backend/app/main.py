@@ -69,6 +69,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         settings.APP_URL,
+        "https://tos.inksky.net",
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
