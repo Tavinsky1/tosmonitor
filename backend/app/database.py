@@ -9,11 +9,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# pool_pre_ping keeps connections alive through Neon/Render cold-starts.
+# SSL is handled via ?ssl=require in the DATABASE_URL (set by config validator).
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    pool_size=10,
-    max_overflow=20,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
 )
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

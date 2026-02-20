@@ -5,7 +5,7 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    preDeployCommand: alembic upgrade head
+    preDeployCommand: alembic upgrade head && python seed.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
@@ -20,14 +20,16 @@ services:
         value: 10080
       - key: APP_URL
         sync: false
+      - key: GROQ_API_KEY
+        sync: false   # Free LLM: https://console.groq.com
+      - key: GROQ_MODEL
+        value: llama-3.1-70b-versatile
       - key: OPENAI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: LLM_PROVIDER
-        value: openai
-      - key: OPENAI_MODEL
-        value: gpt-4o-mini
+        value: groq  # Change to openai or anthropic if preferred
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM

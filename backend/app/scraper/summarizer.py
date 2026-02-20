@@ -62,15 +62,43 @@ async def summarize_change(
     user_msg = "".join(prompt_parts)
 
     try:
-        if settings.LLM_PROVIDER == "anthropic" and settings.ANTHROPIC_API_KEY:
+        if settings.LLM_PROVIDER == "groq" and settings.GROQ_API_KEY:
+            return await _summarize_groq(user_msg)
+        elif settings.LLM_PROVIDER == "anthropic" and settings.ANTHROPIC_API_KEY:
             return await _summarize_anthropic(user_msg)
         elif settings.OPENAI_API_KEY:
             return await _summarize_openai(user_msg)
+        elif settings.GROQ_API_KEY:  # fallback to Groq if key exists
+            return await _summarize_groq(user_msg)
         else:
             return _fallback_summary(service_name)
     except Exception as e:
         logger.error(f"LLM summarization failed: {e}")
         return _fallback_summary(service_name)
+
+
+async def _summarize_groq(user_msg: str) -> dict:
+    """Call Groq API for summarization (free tier: 20 req/min)."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
+            json={
+                "model": settings.GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3,
+                "max_tokens": 500,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        import json
+        result = json.loads(data["choices"][0]["message"]["content"])
+        return _normalize_result(result)
 
 
 async def _summarize_openai(user_msg: str) -> dict:

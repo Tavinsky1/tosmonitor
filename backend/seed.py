@@ -172,7 +172,11 @@ async def seed():
             print(f"✅ Seeded {len(DEFAULT_SERVICES)} services")
         except Exception as e:
             await session.rollback()
-            print(f"⚠️  Seed failed (maybe already seeded?): {e}")
+            # ON CONFLICT — services already exist, that's fine
+            if "unique" in str(e).lower() or "duplicate" in str(e).lower() or "already" in str(e).lower():
+                print("✅ Services already seeded — skipping")
+            else:
+                print(f"⚠️  Seed failed: {e}")
 
     await engine.dispose()
 

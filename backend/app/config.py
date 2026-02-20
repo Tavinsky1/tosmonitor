@@ -22,11 +22,16 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: str) -> str:
-        """Normalize Render's postgres:// URL to postgresql+asyncpg://."""
+        """Normalize postgres:// (Render/Neon) to postgresql+asyncpg://.
+        Also converts sslmode=require -> ssl=require for asyncpg.
+        """
         if v.startswith("postgres://"):
             v = "postgresql+asyncpg://" + v[len("postgres://"):]
         elif v.startswith("postgresql://") and "+asyncpg" not in v:
             v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        # asyncpg uses ?ssl=require, not ?sslmode=require
+        v = v.replace("sslmode=require", "ssl=require")
+        v = v.replace("sslmode=prefer", "ssl=prefer")
         return v
 
     # ── Auth ────────────────────────────────────────────────
@@ -38,8 +43,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
-    LLM_PROVIDER: str = "openai"  # "openai" or "anthropic"
+    ANTHROPIC_MODEL: str = "claude-haiku-4-20250514"
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.1-70b-versatile"  # Free tier: 20 req/min
+    LLM_PROVIDER: str = "groq"  # "openai", "anthropic", or "groq"
 
     # ── Scraper ─────────────────────────────────────────────
     SCRAPE_INTERVAL_HOURS: int = 6
