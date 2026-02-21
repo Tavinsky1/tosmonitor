@@ -117,8 +117,13 @@ async def check_service(service: Service, db: AsyncSession) -> list[Change]:
         except Exception as e:
             logger.exception(f"Error checking {service.name} ({doc_type}): {e}")
 
-    # Update last-checked timestamp
-    service.last_checked_at = datetime.now(timezone.utc)
+    # Update last-checked timestamp via explicit UPDATE (works even with detached service object)
+    from sqlalchemy import update as _update
+    await db.execute(
+        _update(Service)
+        .where(Service.id == service.id)
+        .values(last_checked_at=datetime.now(timezone.utc))
+    )
 
     return changes
 
@@ -143,38 +148,44 @@ async def run_full_scan():
     """
     logger.info("Starting full scan...")
 
+    # Fetch service list in its own session so it's committed/closed cleanly
     async with async_session() as db:
         result = await db.execute(
             select(Service).where(Service.is_active == True)
         )
         services = result.scalars().all()
 
-        logger.info(f"Checking {len(services)} services")
+    logger.info(f"Checking {len(services)} services")
 
-        all_changes = []
-        for service in services:
-            try:
+    all_changes = []
+    for service in services:
+        # Each service gets its OWN session — a failure in one never affects another
+        try:
+            async with async_session() as db:
                 changes = await check_service(service, db)
+                await db.commit()  # Commit snapshots + changes + last_checked_at per service
                 all_changes.extend(changes)
-                await asyncio.sleep(2)  # Rate limit between services
-            except Exception as e:
-                logger.exception(f"Error scanning {service.name}: {e}")
+        except Exception as e:
+            logger.exception(f"Error scanning {service.name}: {e}")
 
-        await db.commit()
+        await asyncio.sleep(2)  # Rate limit between services
 
-        logger.info(
-            f"Scan complete: {len(services)} services checked, "
-            f"{len(all_changes)} changes detected"
-        )
+    logger.info(
+        f"Scan complete: {len(services)} services checked, "
+        f"{len(all_changes)} changes detected"
+    )
 
-        # Trigger alerts for new changes
-        if all_changes:
+    # Trigger alerts for new changes (using a fresh session)
+    if all_changes:
+        async with async_session() as db:
             from app.services.alerts import send_alerts_for_changes
             await send_alerts_for_changes(all_changes, db)
+            await db.commit()
 
-            # Feed sales agent
-            if settings.SALES_AGENT_ENABLED:
-                from app.services.sales_bridge import push_changes
-                await push_changes(all_changes)
+        # Feed sales agent
+        if settings.SALES_AGENT_ENABLED:
+            from app.services.sales_bridge import push_changes
+            await push_changes(all_changes)
 
     return all_changes
+
