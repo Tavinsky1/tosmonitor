@@ -204,16 +204,33 @@ async def health():
     }
 
 
+_scan_running = False
+
+
 @app.post("/api/admin/scan")
-async def trigger_scan():
-    """Manually trigger a full scan (admin endpoint)."""
+async def trigger_scan(background_tasks: __import__("fastapi").BackgroundTasks):
+    """Kick off a full scan in the background and return immediately."""
+    global _scan_running
     from app.scraper.scheduler import run_full_scan
 
-    changes = await run_full_scan()
-    return {
-        "status": "completed",
-        "changes_detected": len(changes),
-    }
+    if _scan_running:
+        return {"status": "already_running"}
+
+    async def _run():
+        global _scan_running
+        _scan_running = True
+        try:
+            await run_full_scan()
+        finally:
+            _scan_running = False
+
+    background_tasks.add_task(_run)
+    return {"status": "started", "message": "Scan running in background — check /api/changes in a few minutes"}
+
+
+@app.get("/api/admin/scan/status")
+async def scan_status():
+    return {"running": _scan_running}
 
 
 @app.post("/api/admin/seed-demo")
