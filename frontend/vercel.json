@@ -48,7 +48,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.tos.inksky.net/api/:path*"
+      "destination": "https://tosmonitor-1.onrender.com/api/:path*"
     }
   ],
   "redirects": [
