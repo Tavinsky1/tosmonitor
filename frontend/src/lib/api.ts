@@ -241,3 +241,17 @@ export interface DashboardStats {
 export async function getDashboardStats(): Promise<DashboardStats> {
   return apiFetch("/api/changes/dashboard/stats");
 }
+
+// ── Suggestions ─────────────────────────────────────────────
+
+export async function suggestService(payload: {
+  service_name: string;
+  url: string;
+  email?: string;
+  notes?: string;
+}): Promise<{ id: string; service_name: string; url: string; status: string }> {
+  return apiFetch("/api/suggestions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

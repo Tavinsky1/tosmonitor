@@ -8,10 +8,11 @@ import {
   unsubscribe,
   getMySubscriptions,
   getMe,
+  suggestService,
 } from "@/lib/api";
 import type { Service } from "@/lib/api";
 import { useState } from "react";
-import { Bell, BellOff, Search, Globe, Shield, Lock } from "lucide-react";
+import { Bell, BellOff, Search, Globe, Shield, Lock, PlusCircle } from "lucide-react";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { formatDistanceToNow } from "date-fns";
 import clsx from "clsx";
@@ -21,6 +22,8 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [subError, setSubError] = useState<string | null>(null);
+  const [suggest, setSuggest] = useState({ name: "", url: "", email: "", notes: "" });
+  const [suggestDone, setSuggestDone] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ["me"],
@@ -58,6 +61,17 @@ export default function ServicesPage() {
   const unsubscribeMut = useMutation({
     mutationFn: (serviceId: string) => unsubscribe(serviceId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-subscriptions"] }),
+  });
+
+  const suggestMut = useMutation({
+    mutationFn: () =>
+      suggestService({
+        service_name: suggest.name,
+        url: suggest.url,
+        email: suggest.email || undefined,
+        notes: suggest.notes || undefined,
+      }),
+    onSuccess: () => setSuggestDone(true),
   });
 
   const subCount = subscriptions?.length ?? 0;
@@ -241,6 +255,96 @@ export default function ServicesPage() {
           No services found matching your search.
         </div>
       )}
+
+      {/* ── Suggest a service ─────────────────────────────── */}
+      <div className="mt-12 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8">
+        <div className="mb-5 flex items-center gap-3">
+          <PlusCircle className="h-6 w-6 text-brand-400" />
+          <div>
+            <h2 className="text-base font-semibold text-brand-900">
+              Don&rsquo;t see your service?
+            </h2>
+            <p className="text-sm text-gray-500">
+              Suggest a URL and we&rsquo;ll add it to the monitoring list.
+            </p>
+          </div>
+        </div>
+
+        {suggestDone ? (
+          <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 text-sm text-green-700">
+            ✓ Thanks! We&rsquo;ll review your suggestion and add it within 24 hours.
+          </div>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (suggest.name && suggest.url) suggestMut.mutate();
+            }}
+            className="grid gap-3 sm:grid-cols-2"
+          >
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Service name *</label>
+              <input
+                required
+                type="text"
+                placeholder="e.g. Linear, Notion, Vercel"
+                value={suggest.name}
+                onChange={(e) => setSuggest((p) => ({ ...p, name: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Terms / Privacy URL *</label>
+              <input
+                required
+                type="url"
+                placeholder="https://example.com/terms"
+                value={suggest.url}
+                onChange={(e) => setSuggest((p) => ({ ...p, url: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Your email (optional — we&rsquo;ll notify you)</label>
+              <input
+                type="email"
+                placeholder="you@company.com"
+                value={suggest.email}
+                onChange={(e) => setSuggest((p) => ({ ...p, email: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-1">
+              <label className="mb-1 block text-xs font-medium text-gray-600">Why is this important to you? (optional)</label>
+              <input
+                type="text"
+                placeholder="We rely on it for payments, data processing…"
+                value={suggest.notes}
+                onChange={(e) => setSuggest((p) => ({ ...p, notes: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-2 flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={suggestMut.isPending || !suggest.name || !suggest.url}
+                className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50 transition"
+              >
+                {suggestMut.isPending ? "Sending…" : "Submit suggestion"}
+              </button>
+              {suggestMut.isError && (
+                <span className="text-xs text-red-500">
+                  {(suggestMut.error as Error).message}
+                </span>
+              )}
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
