@@ -48,7 +48,7 @@ export default function ChangeDetailClient({ id: propId }: { id: string }) {
       <div className="mb-6">
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <SeverityBadge severity={change.severity} size="lg" />
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+          <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-400">
             {change.change_type.replace("_", " ")}
           </span>
         </div>
@@ -64,9 +64,9 @@ export default function ChangeDetailClient({ id: propId }: { id: string }) {
       </div>
 
       {/* Summary */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="mb-2 text-sm font-semibold text-gray-900">Summary</h2>
-        <p className="leading-relaxed text-gray-700">{change.summary}</p>
+      <div className="mb-6 rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-200">Summary</h2>
+        <p className="leading-relaxed text-zinc-400">{change.summary}</p>
 
         <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
           <span className="flex items-center gap-1">
@@ -87,8 +87,8 @@ export default function ChangeDetailClient({ id: propId }: { id: string }) {
 
       {/* Diff viewer (gated for free users) */}
       {change.diff_html ? (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">
+        <div className="mb-6 rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+          <h2 className="mb-4 text-sm font-semibold text-zinc-200">
             Visual Diff
           </h2>
           <div
@@ -104,8 +104,8 @@ export default function ChangeDetailClient({ id: propId }: { id: string }) {
 
       {/* Raw content (if available) */}
       {change.old_content && change.new_content && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-6">
+          <h2 className="mb-4 text-sm font-semibold text-zinc-200">
             Full Content Comparison
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
