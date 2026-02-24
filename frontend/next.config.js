@@ -1,16 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: "https://tosmonitor-1.onrender.com/api/:path*",
-      },
-    ];
-  },
+  output: "export",
+  images: { unoptimized: true },
+  trailingSlash: true,
 };
 
 module.exports = nextConfig;
 
-module.exports = nextConfig;
