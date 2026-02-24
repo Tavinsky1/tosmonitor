@@ -26,7 +26,7 @@ export default function DashboardLayout({
               <div className="h-4 w-px bg-white/10" />
 
               <Link href="/" className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-indigo-400" />
+                <Shield className="h-5 w-5 text-yellow-400" />
                 <span className="font-semibold text-white text-sm">ToS Monitor</span>
               </Link>
             </div>

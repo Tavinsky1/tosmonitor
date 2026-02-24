@@ -31,11 +31,11 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-background/80">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-indigo-500/30 transition-shadow">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-300 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-yellow-400/30 transition-shadow">
             <Shield className="h-4 w-4 text-white" />
           </div>
           <span className="font-display text-lg font-semibold text-white tracking-tight">
-            ToS<span className="text-indigo-400">Monitor</span>
+            ToS<span className="text-yellow-400">Monitor</span>
           </span>
         </Link>
 
@@ -48,7 +48,7 @@ export function Navbar() {
               className={clsx(
                 "text-body transition-colors",
                 pathname === link.href
-                  ? "text-indigo-400"
+                  ? "text-yellow-400"
                   : "text-zinc-400 hover:text-white"
               )}
             >
@@ -73,7 +73,7 @@ export function Navbar() {
               </Link>
               <Link
                 href="/register"
-                className="btn-primary px-4 py-2 rounded-lg text-body text-white"
+                className="btn-primary px-4 py-2 rounded-lg text-body text-zinc-900"
               >
                 Get Started
               </Link>
@@ -110,7 +110,7 @@ export function Navbar() {
           ) : (
             <Link
               href="/register"
-              className="mt-2 block btn-primary text-center px-4 py-2 rounded-lg text-body text-white"
+              className="mt-2 block btn-primary text-center px-4 py-2 rounded-lg text-body text-zinc-900"
               onClick={() => setMobileOpen(false)}
             >
               Get Started

@@ -134,10 +134,10 @@ function FeatureCard({
       className="glass-card rounded-2xl p-7 group cursor-pointer transition-all duration-500"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-        <Icon className="w-6 h-6 text-indigo-400" />
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400/20 to-cyan-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+        <Icon className="w-6 h-6 text-yellow-400" />
       </div>
-      <h3 className="headline-small text-white mb-3 group-hover:text-indigo-300 transition-colors">
+      <h3 className="headline-small text-white mb-3 group-hover:text-yellow-300 transition-colors">
         {title}
       </h3>
       <p className="text-body">{description}</p>
@@ -154,7 +154,7 @@ function LiveActivityBadge() {
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
       </span>
       <span className="label-medium text-zinc-400">
-        Monitoring <span className="text-indigo-400">20 services</span>
+        Monitoring <span className="text-yellow-400">20 services</span>
       </span>
       <span className="text-zinc-700">|</span>
       <span className="label-medium text-zinc-400">
@@ -180,7 +180,7 @@ function StatsSection() {
           key={idx}
           className="glass-card rounded-xl p-6 text-center group hover:scale-105 transition-transform duration-300"
         >
-          <stat.icon className="w-5 h-5 text-indigo-400 mx-auto mb-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+          <stat.icon className="w-5 h-5 text-yellow-400 mx-auto mb-3 opacity-60 group-hover:opacity-100 transition-opacity" />
           <div className="headline-medium gradient-text-brand mb-1">
             {stat.value}
           </div>
@@ -219,7 +219,7 @@ function PricingCard({
     <div
       className={`relative rounded-2xl p-[1px] transition-all duration-500 hover:scale-[1.02] ${
         highlighted
-          ? "bg-gradient-to-b from-indigo-500 via-violet-500 to-cyan-500"
+          ? "bg-gradient-to-b from-yellow-400 via-yellow-300 to-cyan-500"
           : "bg-white/10"
       }`}
       style={{ animationDelay: `${delay}ms` }}
@@ -227,7 +227,7 @@ function PricingCard({
       <div className="bg-[#0c0c12] rounded-2xl p-7 h-full flex flex-col">
         {highlighted && (
           <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-            <span className="label px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-white">
+            <span className="label px-3 py-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-300 text-white">
               Popular
             </span>
           </div>
@@ -256,7 +256,7 @@ function PricingCard({
           href={href}
           className={`block text-center py-3.5 rounded-lg font-display font-medium transition-all duration-300 ${
             highlighted
-              ? "btn-primary text-white"
+              ? "btn-primary text-zinc-900"
               : "btn-secondary text-white"
           }`}
         >
@@ -288,11 +288,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-indigo-500/30 transition-shadow">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-300 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-yellow-400/30 transition-shadow">
                 <Shield className="w-4 h-4 text-white" />
               </div>
               <span className="font-display text-lg font-semibold text-white tracking-tight">
-                ToS<span className="text-indigo-400">Monitor</span>
+                ToS<span className="text-yellow-400">Monitor</span>
               </span>
             </Link>
             
@@ -308,7 +308,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="btn-primary px-5 py-2.5 rounded-lg text-white"
+                className="btn-primary px-5 py-2.5 rounded-lg text-zinc-900"
               >
                 Get Started
               </Link>
@@ -369,7 +369,7 @@ export default function LandingPage() {
       <section id="features" className="relative z-10 py-28 px-4 border-t border-white/10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <p className="label text-indigo-400 mb-4">How It Works</p>
+            <p className="label text-yellow-400 mb-4">How It Works</p>
             <h2 className="headline-large text-white mb-6">
               Set it up once.
               <br />
@@ -414,7 +414,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <p className="label text-indigo-400 mb-4">Live Feed</p>
+              <p className="label text-yellow-400 mb-4">Live Feed</p>
               <h2 className="headline-large text-white mb-6">
                 See Changes As They Happen
               </h2>
@@ -437,7 +437,7 @@ export default function LandingPage() {
               </ul>
               <Link
                 href="/dashboard/changes"
-                className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 font-display font-medium transition-colors"
+                className="inline-flex items-center gap-2 text-yellow-400 hover:text-yellow-300 font-display font-medium transition-colors"
               >
                 View Live Change Feed
                 <ChevronRight className="w-5 h-5" />
@@ -480,7 +480,7 @@ export default function LandingPage() {
       <section id="pricing" className="relative z-10 py-28 px-4 border-t border-white/10">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="label text-indigo-400 mb-4">Pricing</p>
+            <p className="label text-yellow-400 mb-4">Pricing</p>
             <h2 className="headline-large text-white mb-6">
               Simple, <span className="gradient-text-brand">Transparent</span> Pricing
             </h2>
@@ -548,7 +548,7 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="relative z-10 py-28 px-4 border-t border-white/10">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="label text-indigo-400 mb-6">Ready to get started?</p>
+          <p className="label text-yellow-400 mb-6">Ready to get started?</p>
           <h2 className="headline-large text-white mb-8">
             Stop being surprised
             <br />
@@ -576,11 +576,11 @@ export default function LandingPage() {
       <footer className="relative z-10 py-12 px-4 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-yellow-400 to-yellow-300 flex items-center justify-center">
               <Shield className="w-3 h-3 text-white" />
             </div>
             <span className="font-display text-sm font-semibold text-white">
-              ToS<span className="text-indigo-400">Monitor</span>
+              ToS<span className="text-yellow-400">Monitor</span>
             </span>
           </div>
           <p className="text-small">

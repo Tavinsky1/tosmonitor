@@ -31,14 +31,14 @@ export function UpgradeBanner({ message, compact = false }: UpgradeBannerProps) 
           <Sparkles className="h-5 w-5 text-brand-600" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium text-brand-900">{message}</p>
+          <p className="text-sm font-medium text-white">{message}</p>
           <p className="mt-1 text-xs text-gray-500">
             Upgrade your plan to unlock this feature.
           </p>
         </div>
         <Link
           href="/pricing"
-          className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+          className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-600"
         >
           Upgrade <ArrowUpRight className="h-4 w-4" />
         </Link>

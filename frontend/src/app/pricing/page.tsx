@@ -32,7 +32,7 @@ const PLANS = [
     period: "/month",
     description: "For teams that can't afford ToS surprises.",
     icon: Zap,
-    color: "text-indigo-400",
+    color: "text-yellow-400",
     cta: "Start Pro",
     plan: "pro",
     highlighted: true,
@@ -121,7 +121,7 @@ export default function PricingPage() {
             </Link>
             <Link
               href="/register"
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+              className="rounded-lg bg-yellow-400 px-4 py-1.5 text-sm font-medium text-zinc-900 hover:bg-yellow-300 transition-colors"
             >
               Get started
             </Link>
@@ -155,12 +155,12 @@ export default function PricingPage() {
                 key={plan.name}
                 className={`relative flex flex-col rounded-2xl border p-8 ${
                   plan.highlighted
-                    ? "border-indigo-500/50 bg-indigo-950/30"
+                    ? "border-yellow-400/50 bg-yellow-950/20"
                     : "border-white/10 bg-white/5"
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-4 py-1 text-xs font-semibold text-white">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 px-4 py-1 text-xs font-semibold text-zinc-900">
                     Most popular
                   </div>
                 )}
@@ -183,7 +183,7 @@ export default function PricingPage() {
                     disabled={loading === plan.plan}
                     className={`mb-8 w-full rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-60 ${
                       plan.highlighted
-                        ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                        ? "bg-yellow-400 text-zinc-900 hover:bg-yellow-300"
                         : "bg-white/10 text-white hover:bg-white/20"
                     }`}
                   >
@@ -215,7 +215,7 @@ export default function PricingPage() {
         <div className="mt-20 text-center">
           <p className="text-sm text-zinc-500">
             All plans include a 7-day free trial. Cancel any time.{" "}
-            <a href="mailto:hello@inksky.net" className="text-indigo-400 hover:underline">
+            <a href="mailto:hello@inksky.net" className="text-yellow-400 hover:underline">
               Questions? Email us.
             </a>
           </p>

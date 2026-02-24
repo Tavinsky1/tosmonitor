@@ -32,7 +32,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-300 flex items-center justify-center mx-auto mb-4">
             <Shield className="h-6 w-6 text-white" />
           </div>
           <h1 className="headline-medium text-white mb-2">Welcome back</h1>
@@ -57,7 +57,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg bg-surface border border-white/10 px-4 py-3 text-body text-white placeholder-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+              className="w-full rounded-lg bg-surface border border-white/10 px-4 py-3 text-body text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/20 transition-colors"
               placeholder="you@company.com"
             />
           </div>
@@ -71,7 +71,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-surface border border-white/10 px-4 py-3 text-body text-white placeholder-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+              className="w-full rounded-lg bg-surface border border-white/10 px-4 py-3 text-body text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/20 transition-colors"
               placeholder="••••••••"
             />
           </div>
@@ -88,7 +88,7 @@ export default function LoginPage() {
 
         <p className="mt-8 text-center text-body text-zinc-500">
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+          <Link href="/register" className="font-medium text-yellow-400 hover:text-yellow-300 transition-colors">
             Sign up free
           </Link>
         </p>

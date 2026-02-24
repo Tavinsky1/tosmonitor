@@ -25,7 +25,7 @@ export function RecentChangesPreview() {
                 Live Feed
               </span>
             </div>
-            <h2 className="text-2xl font-bold text-brand-900">
+            <h2 className="text-2xl font-bold text-white">
               Recent Changes We Caught
             </h2>
             <p className="mt-1 text-sm text-gray-500">
@@ -97,7 +97,7 @@ export function RecentChangesPreview() {
 
         <Link
           href="/dashboard/changes"
-          className="mt-6 flex items-center justify-center gap-1 text-sm font-medium text-brand-600 hover:underline sm:hidden"
+          className="mt-6 flex items-center justify-center gap-1 text-sm font-medium text-yellow-400 hover:underline sm:hidden"
         >
           View all changes <ArrowRight className="h-4 w-4" />
         </Link>

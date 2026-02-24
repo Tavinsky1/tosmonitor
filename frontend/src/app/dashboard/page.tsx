@@ -38,7 +38,7 @@ export default function DashboardPage() {
       label: "Services Monitored",
       value: stats?.total_services_monitored ?? "—",
       icon: Shield,
-      color: "text-indigo-400",
+      color: "text-yellow-400",
     },
     {
       label: "Changes (7 days)",
@@ -67,7 +67,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 mb-2">
             <h1 className="headline-medium text-white">Dashboard</h1>
             {user?.plan && (
-              <span className="label px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+              <span className="label px-2.5 py-1 rounded bg-yellow-400/20 text-yellow-400 border border-yellow-400/30">
                 {user.plan.toUpperCase()}
               </span>
             )}
@@ -104,7 +104,7 @@ export default function DashboardPage() {
               </h2>
               <Link
                 href="/dashboard/changes"
-                className="text-body font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="text-body font-medium text-yellow-400 hover:text-yellow-300 transition-colors"
               >
                 View all →
               </Link>
@@ -137,7 +137,7 @@ export default function DashboardPage() {
               </h2>
               <Link
                 href="/dashboard/services"
-                className="text-body font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="text-body font-medium text-yellow-400 hover:text-yellow-300 transition-colors"
               >
                 Manage →
               </Link>
@@ -168,7 +168,7 @@ export default function DashboardPage() {
                   <p className="text-small mb-3">No subscriptions yet</p>
                   <Link
                     href="/dashboard/services"
-                    className="inline-block text-body font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                    className="inline-block text-body font-medium text-yellow-400 hover:text-yellow-300 transition-colors"
                   >
                     Browse services →
                   </Link>

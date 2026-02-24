@@ -27,7 +27,7 @@ export default function ChangesPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">Change Feed</h1>
+        <h1 className="text-2xl font-bold text-white">Change Feed</h1>
         <p className="text-sm text-gray-500">
           All detected policy changes across monitored services
         </p>
@@ -47,7 +47,7 @@ export default function ChangesPage() {
               className={clsx(
                 "rounded-full px-3 py-1 text-xs font-medium capitalize transition",
                 severity === s
-                  ? "bg-brand-500 text-white"
+                  ? "bg-brand-500 text-zinc-900"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >

@@ -34,7 +34,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Shield className="mx-auto mb-3 h-10 w-10 text-brand-500" />
-          <h1 className="text-2xl font-bold text-brand-900">
+          <h1 className="text-2xl font-bold text-white">
             Start Monitoring Free
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -94,7 +94,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-zinc-900 hover:bg-brand-600 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Create Account
@@ -103,7 +103,7 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-brand-600 hover:underline">
+          <Link href="/login" className="font-medium text-yellow-400 hover:underline">
             Sign in
           </Link>
         </p>

@@ -52,7 +52,7 @@ export default function DonationBanner() {
 
         <h3 className="font-display text-xl sm:text-2xl font-semibold text-white mb-2">
           Help keep this tool{" "}
-          <span className="text-indigo-400">free &amp; open</span>
+          <span className="text-yellow-400">free &amp; open</span>
         </h3>
         <p className="text-sm text-zinc-400 mb-8 max-w-md mx-auto">
           No ads. No tracking. No paywalls on the free tier. If ToS Monitor helps you, consider keeping it running.
@@ -105,7 +105,7 @@ export default function DonationBanner() {
               <button
                 onClick={() => setShowQR((v) => !v)}
                 className={`px-2.5 py-2.5 border-l border-white/10 transition-colors ${
-                  showQR ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"
+                  showQR ? "text-yellow-400" : "text-zinc-500 hover:text-zinc-300"
                 }`}
                 title="Show QR code"
               >
@@ -126,7 +126,7 @@ export default function DonationBanner() {
                     value={WALLET_ADDRESS}
                     size={140}
                     bgColor="#0c0c12"
-                    fgColor="#6366f1"
+                    fgColor="#D4FF00"
                     level="M"
                   />
                 </div>

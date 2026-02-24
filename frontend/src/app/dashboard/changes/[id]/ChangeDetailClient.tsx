@@ -52,7 +52,7 @@ export default function ChangeDetailClient({ id: propId }: { id: string }) {
             {change.change_type.replace("_", " ")}
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-brand-900">{change.title}</h1>
+        <h1 className="text-2xl font-bold text-white">{change.title}</h1>
         <p className="mt-1 text-sm text-gray-500">
           {change.service_name} ·{" "}
           <span className="inline-flex items-center gap-1">

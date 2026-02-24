@@ -89,7 +89,7 @@ export default function ServicesPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-900">
+        <h1 className="text-2xl font-bold text-white">
           Monitored Services
         </h1>
         <p className="text-sm text-gray-500">
@@ -136,7 +136,7 @@ export default function ServicesPage() {
             className={clsx(
               "rounded-full px-3 py-1.5 text-xs font-medium transition",
               !category
-                ? "bg-brand-500 text-white"
+                ? "bg-brand-500 text-zinc-900"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             )}
           >
@@ -149,7 +149,7 @@ export default function ServicesPage() {
               className={clsx(
                 "rounded-full px-3 py-1.5 text-xs font-medium transition",
                 category === cat.name
-                  ? "bg-brand-500 text-white"
+                  ? "bg-brand-500 text-zinc-900"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
@@ -170,7 +170,7 @@ export default function ServicesPage() {
             >
               <div className="mb-3 flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-brand-900">
+                  <h3 className="font-semibold text-white">
                     {service.name}
                   </h3>
                   {service.category && (
@@ -261,7 +261,7 @@ export default function ServicesPage() {
         <div className="mb-5 flex items-center gap-3">
           <PlusCircle className="h-6 w-6 text-brand-400" />
           <div>
-            <h2 className="text-base font-semibold text-brand-900">
+            <h2 className="text-base font-semibold text-white">
               Don&rsquo;t see your service?
             </h2>
             <p className="text-sm text-gray-500">
@@ -332,7 +332,7 @@ export default function ServicesPage() {
               <button
                 type="submit"
                 disabled={suggestMut.isPending || !suggest.name || !suggest.url}
-                className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50 transition"
+                className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-zinc-900 hover:bg-brand-600 disabled:opacity-50 transition"
               >
                 {suggestMut.isPending ? "Sending…" : "Submit suggestion"}
               </button>
