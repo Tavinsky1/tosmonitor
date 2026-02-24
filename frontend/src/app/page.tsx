@@ -1,5 +1,6 @@
 "use client";
 
+import DonationBanner from "@/components/DonationBanner";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -567,6 +568,9 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {/* Donation Banner */}
+      <DonationBanner />
 
       {/* Footer */}
       <footer className="relative z-10 py-12 px-4 border-t border-white/10">

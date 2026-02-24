@@ -1,0 +1,28 @@
+{
+  "name": "tosmonitor-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "bcryptjs": "^2.4.3",
+    "diff": "^7.0.0",
+    "drizzle-orm": "^0.38.0",
+    "hono": "^4.6.0",
+    "jose": "^5.9.0",
+    "stripe": "^17.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/diff": "^6.0.0",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}

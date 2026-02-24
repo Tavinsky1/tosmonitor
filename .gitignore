@@ -1,2 +1,17 @@
 .DS_Store
 *.log
+
+# Node
+node_modules/
+.wrangler/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Worker build
+worker/.wrangler/
+
+# Env
+.env.local
+.env*.local
