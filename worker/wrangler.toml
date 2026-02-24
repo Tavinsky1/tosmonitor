@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
 
-# Cron trigger: run scraper every 6 hours
+# Cron trigger: run scraper every 2 hours (batched, 10 services per run)
 [triggers]
-crons = ["0 */6 * * *"]
+crons = ["0 */2 * * *"]
 
 workers_dev = true
 

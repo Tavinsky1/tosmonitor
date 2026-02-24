@@ -12,38 +12,51 @@ import { sendAlertsForChanges } from "./alerts";
 import type { Env, ChangeType } from "../lib/types";
 
 export async function runFullScan(env: Env) {
-  console.log("Starting full scan...");
+  console.log("Starting batched scan...");
   const db = getDb(env.DATABASE_URL);
   const timeoutMs = parseInt(env.SCRAPE_TIMEOUT_SECONDS) * 1000 || 30000;
+  const BATCH_SIZE = 10;       // services per cron invocation
+  const CONCURRENCY = 3;       // parallel fetches
 
-  // Load all active services
-  const allServices = await db.select().from(services).where(eq(services.isActive, true));
-  console.log(`Scanning ${allServices.length} services`);
+  // Pick the N least-recently-checked active services
+  const allServices = await db
+    .select()
+    .from(services)
+    .where(eq(services.isActive, true))
+    .orderBy(services.lastCheckedAt)   // NULL (never checked) comes first
+    .limit(BATCH_SIZE);
+
+  console.log(`Scanning batch of ${allServices.length} services (most stale first)`);
 
   const newChangeIds: string[] = [];
 
-  for (const svc of allServices) {
-    try {
-      // Check ToS URL
-      if (svc.tosUrl) {
-        const changeId = await checkUrl(db, svc, svc.tosUrl, "TOS_UPDATE", timeoutMs, env);
-        if (changeId) newChangeIds.push(changeId);
-      }
-      // Check Privacy URL
-      if (svc.privacyUrl) {
-        const changeId = await checkUrl(db, svc, svc.privacyUrl, "PRIVACY_UPDATE", timeoutMs, env);
-        if (changeId) newChangeIds.push(changeId);
-      }
+  // Process in parallel chunks of CONCURRENCY
+  for (let i = 0; i < allServices.length; i += CONCURRENCY) {
+    const chunk = allServices.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map(async (svc) => {
+        const ids: string[] = [];
+        try {
+          if (svc.tosUrl) {
+            const changeId = await checkUrl(db, svc, svc.tosUrl, "TOS_UPDATE", timeoutMs, env);
+            if (changeId) ids.push(changeId);
+          }
+          if (svc.privacyUrl) {
+            const changeId = await checkUrl(db, svc, svc.privacyUrl, "PRIVACY_UPDATE", timeoutMs, env);
+            if (changeId) ids.push(changeId);
+          }
+          await db.update(services)
+            .set({ lastCheckedAt: new Date() })
+            .where(eq(services.id, svc.id));
+        } catch (err) {
+          console.error(`Error scanning ${svc.slug}:`, err);
+        }
+        return ids;
+      })
+    );
 
-      // Update last checked
-      await db.update(services)
-        .set({ lastCheckedAt: new Date() })
-        .where(eq(services.id, svc.id));
-
-      // Small delay between services to be polite
-      await sleep(1000);
-    } catch (err) {
-      console.error(`Error scanning ${svc.slug}:`, err);
+    for (const r of results) {
+      if (r.status === "fulfilled") newChangeIds.push(...r.value);
     }
   }
 
