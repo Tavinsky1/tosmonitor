@@ -46,8 +46,11 @@ app.get("/", authOptional, async (c) => {
 
   const countMap = new Map(subCounts.map((s) => [s.serviceId, s.count]));
 
+  // Total count for pagination
+  const [totalRow] = await db.select({ count: countFn() }).from(services).where(where);
+
   return c.json({
-    items: rows.map((r) => ({
+    services: rows.map((r) => ({
       id: r.id,
       name: r.name,
       slug: r.slug,
@@ -59,6 +62,7 @@ app.get("/", authOptional, async (c) => {
       last_checked_at: r.lastCheckedAt,
       subscriber_count: countMap.get(r.id) ?? 0,
     })),
+    total: Number(totalRow.count),
     page,
     per_page: perPage,
   });

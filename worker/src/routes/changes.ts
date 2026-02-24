@@ -56,8 +56,14 @@ app.get("/", authOptional, async (c) => {
     .limit(perPage)
     .offset((page - 1) * perPage);
 
+  // Total count for pagination
+  const [countRow] = await db.select({ count: countFn() })
+    .from(changes)
+    .innerJoin(services, eq(changes.serviceId, services.id))
+    .where(where);
+
   return c.json({
-    items: rows.map((r) => ({
+    changes: rows.map((r) => ({
       id: r.id,
       change_type: r.changeType,
       severity: r.severity,
@@ -70,6 +76,7 @@ app.get("/", authOptional, async (c) => {
       service_name: r.serviceName,
       service_slug: r.serviceSlug,
     })),
+    total: Number(countRow.count),
     page,
     per_page: perPage,
   });
