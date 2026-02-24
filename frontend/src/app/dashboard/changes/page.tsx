@@ -7,7 +7,15 @@ import { useState } from "react";
 import { Filter } from "lucide-react";
 import clsx from "clsx";
 
-const severityFilters = ["all", "critical", "major", "minor", "patch"];
+const severityFilters = ["all", "critical", "major", "minor", "patch"] as const;
+
+const severityColors: Record<string, { active: string; inactive: string }> = {
+  all:      { active: "bg-brand-500 text-zinc-900", inactive: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" },
+  critical: { active: "bg-rose-500/20 text-rose-400 border border-rose-500/40", inactive: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" },
+  major:    { active: "bg-amber-500/20 text-amber-400 border border-amber-500/40", inactive: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" },
+  minor:    { active: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40", inactive: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" },
+  patch:    { active: "bg-slate-500/20 text-slate-400 border border-slate-500/40", inactive: "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" },
+};
 
 export default function ChangesPage() {
   const [severity, setSeverity] = useState("all");
@@ -47,8 +55,8 @@ export default function ChangesPage() {
               className={clsx(
                 "rounded-full px-3 py-1 text-xs font-medium capitalize transition",
                 severity === s
-                  ? "bg-brand-500 text-zinc-900"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? severityColors[s].active
+                  : severityColors[s].inactive
               )}
             >
               {s}
@@ -62,7 +70,7 @@ export default function ChangesPage() {
             setDays(Number(e.target.value));
             setPage(1);
           }}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
+          className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 focus:border-brand-500 focus:outline-none"
         >
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
@@ -82,8 +90,8 @@ export default function ChangesPage() {
             <ChangeCard key={change.id} change={change} />
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
-            <p className="text-sm text-gray-500">
+          <div className="glass-card rounded-xl border border-dashed border-zinc-700 p-12 text-center">
+            <p className="text-sm text-zinc-500">
               No changes found for the selected filters.
             </p>
           </div>
@@ -96,17 +104,17 @@ export default function ChangesPage() {
           <button
             onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page === 1}
-            className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 disabled:opacity-50"
           >
             Previous
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-zinc-500">
             Page {page} of {Math.ceil(data.total / 20)}
           </span>
           <button
             onClick={() => setPage(page + 1)}
             disabled={page * 20 >= data.total}
-            className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300 disabled:opacity-50"
           >
             Next
           </button>

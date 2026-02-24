@@ -50,7 +50,7 @@ export interface TierLimits {
 export const TIER_LIMITS: Record<Plan, TierLimits> = {
   FREE: {
     maxServices: 2,
-    historyDays: 3,
+    historyDays: 99999,
     diffAccess: false,
     webhookAccess: false,
     csvExport: false,

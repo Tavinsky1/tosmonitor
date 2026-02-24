@@ -7,9 +7,12 @@ import servicesRoutes from "./routes/services";
 import billingRoutes from "./routes/billing";
 import suggestionsRoutes from "./routes/suggestions";
 import { runFullScan } from "./services/scheduler";
+import { fetchPage } from "./services/fetcher";
+import { computeDiff, isTooSimilar } from "./services/differ";
+import { summarize } from "./services/summarizer";
 import { getDb } from "./db/client";
 import { alerts, changes, services, snapshots } from "./db/schema";
-import { eq, desc, count as countFn } from "drizzle-orm";
+import { and, eq, desc, count as countFn, inArray, like, or } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -60,98 +63,231 @@ app.post("/api/admin/scan", async (c) => {
 
 /* ── Admin: seed demo data ─────────────────────────── */
 app.post("/api/admin/seed-demo", async (c) => {
-  const db = getDb(c.env.DATABASE_URL);
-  const reset = c.req.query("reset") === "true";
-
-  // Check if already seeded
-  const [existing] = await db.select({ count: countFn() }).from(changes);
-  if ((existing.count as number) > 0 && !reset) {
-    return c.json({ message: "Demo data already exists. Use ?reset=true to re-seed." });
-  }
-
-  if (reset) {
-    // Delete in order: alerts → changes → snapshots (respect FK constraints)
-    await db.delete(alerts);
-    await db.delete(changes);
-    await db.delete(snapshots);
-  }
-
-  // Get some services to attach changes to
-  const svcs = await db.select().from(services).limit(6);
-  if (svcs.length === 0) {
-    return c.json({ detail: "No services found. Run seed.py first." }, 400);
-  }
-
-  const demoChanges = [
-    { slug: "stripe", type: "TOS_UPDATE" as const, severity: "MAJOR" as const,
-      title: "Stripe updated payment dispute and liability clauses",
-      summary: "Stripe revised Section 14 (Disputes and Reversals) to reduce the window for contesting chargebacks from 30 to 15 days." },
-    { slug: "openai", type: "DATA_POLICY" as const, severity: "CRITICAL" as const,
-      title: "OpenAI expanded data usage rights for model training",
-      summary: "OpenAI updated their data processing terms. Free-tier API usage may now be used for model improvement." },
-    { slug: "github", type: "TOS_UPDATE" as const, severity: "MINOR" as const,
-      title: "GitHub clarified open-source license compliance language",
-      summary: "GitHub added explicit language about DMCA handling for repositories with mixed-license code." },
-    { slug: "slack", type: "PRIVACY_UPDATE" as const, severity: "MAJOR" as const,
-      title: "Slack modified third-party data sharing policy",
-      summary: "Slack updated their privacy policy to allow sharing aggregated workspace analytics with enterprise partners." },
-    { slug: "aws", type: "PRICING_CHANGE" as const, severity: "MINOR" as const,
-      title: "AWS adjusted free tier limits for Lambda",
-      summary: "AWS reduced the free tier for Lambda from 1M to 500K requests/month." },
-    { slug: "anthropic", type: "DATA_POLICY" as const, severity: "MAJOR" as const,
-      title: "Anthropic added data retention clause for API users",
-      summary: "Anthropic now retains API inputs for 30 days for safety evaluation, up from the previous 0-day policy." },
-  ];
-
-  const svcMap = new Map(svcs.map((s) => [s.slug, s.id]));
-  const fakeContent = "These Terms of Service govern your use of the platform. ".repeat(50);
-
-  let inserted = 0;
-  for (const demo of demoChanges) {
-    const serviceId = svcMap.get(demo.slug);
-    if (!serviceId) continue;
-
-    // Create fake snapshots (explicitly provide UUIDs since DB may not have defaults)
-    const [oldSnap] = await db.insert(snapshots).values({
-      id: crypto.randomUUID(),
-      serviceId,
-      url: `https://example.com/${demo.slug}/tos`,
-      contentHash: crypto.randomUUID().replace(/-/g, ""),
-      content: fakeContent,
-      wordCount: fakeContent.split(/\s+/).length,
-      fetchedAt: new Date(),
-    }).returning();
-
-    const [newSnap] = await db.insert(snapshots).values({
-      id: crypto.randomUUID(),
-      serviceId,
-      url: `https://example.com/${demo.slug}/tos`,
-      contentHash: crypto.randomUUID().replace(/-/g, ""),
-      content: fakeContent + " Updated terms apply.",
-      wordCount: (fakeContent + " Updated terms apply.").split(/\s+/).length,
-      fetchedAt: new Date(),
-    }).returning();
-
-    await db.insert(changes).values({
-      id: crypto.randomUUID(),
-      serviceId,
-      snapshotOldId: oldSnap.id,
-      snapshotNewId: newSnap.id,
-      changeType: demo.type,
-      severity: demo.severity,
-      title: demo.title,
-      summary: demo.summary,
-      diffHtml: `<table class="diff-table"><tr style="background:#ffeef0"><td>- Old clause text</td></tr><tr style="background:#e6ffed"><td>+ ${demo.title}</td></tr></table>`,
-      sectionsChanged: 2,
-      wordsAdded: 45,
-      wordsRemoved: 12,
-      detectedAt: new Date(),
-    });
-    inserted++;
-  }
-
-  return c.json({ message: `Seeded ${inserted} demo changes` });
+  return c.json({
+    detail: "Demo seed disabled. Use /api/admin/backfill-real for real historical data.",
+  }, 410);
 });
+
+/* ── Admin: backfill real historical changes ───────── */
+app.post("/api/admin/backfill-real", async (c) => {
+  const db = getDb(c.env.DATABASE_URL);
+  const timeoutMs = (parseInt(c.env.SCRAPE_TIMEOUT_SECONDS || "30", 10) || 30) * 1000;
+  const maxServices = Math.max(1, Math.min(8, parseInt(c.req.query("limit") || "5", 10) || 5));
+  const daysBack = Math.max(30, Math.min(3650, parseInt(c.req.query("days") || "730", 10) || 730));
+  const cleanDemo = c.req.query("clean_demo") !== "false";
+  const slugsParam = (c.req.query("slugs") || "").trim();
+  const slugFilter = slugsParam
+    ? new Set(slugsParam.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))
+    : null;
+
+  if (cleanDemo) {
+    const demoSnapshotRows = await db
+      .select({ id: snapshots.id })
+      .from(snapshots)
+      .where(like(snapshots.url, "https://example.com/%"));
+
+    const demoSnapshotIds = demoSnapshotRows.map((r) => r.id);
+    if (demoSnapshotIds.length > 0) {
+      await db.delete(alerts);
+      await db.delete(changes).where(or(
+        inArray(changes.snapshotOldId, demoSnapshotIds),
+        inArray(changes.snapshotNewId, demoSnapshotIds),
+      ));
+      await db.delete(snapshots).where(inArray(snapshots.id, demoSnapshotIds));
+    }
+  }
+
+  let svcs = await db
+    .select()
+    .from(services)
+    .where(eq(services.isActive, true))
+    .orderBy(services.lastCheckedAt)
+    .limit(60);
+
+  if (slugFilter) {
+    svcs = svcs.filter((s) => slugFilter.has(s.slug.toLowerCase()));
+  }
+
+  const targets = svcs
+    .filter((s) => !!(s.tosUrl || s.privacyUrl))
+    .slice(0, maxServices);
+
+  const inserted: Array<{ slug: string; severity: string; title: string; date: string }> = [];
+  const skipped: Array<{ slug: string; reason: string }> = [];
+
+  for (const svc of targets) {
+    const policyUrl = svc.tosUrl || svc.privacyUrl;
+    if (!policyUrl) {
+      skipped.push({ slug: svc.slug, reason: "no_policy_url" });
+      continue;
+    }
+
+    try {
+      const pair = await getWaybackPair(policyUrl, daysBack);
+      if (!pair) {
+        skipped.push({ slug: svc.slug, reason: "no_wayback_pair" });
+        continue;
+      }
+
+      const [oldResult, newResult] = await Promise.all([
+        fetchPage(pair.oldArchiveUrl, timeoutMs),
+        fetchPage(pair.newArchiveUrl, timeoutMs),
+      ]);
+
+      if (!oldResult || !newResult) {
+        skipped.push({ slug: svc.slug, reason: "archive_fetch_failed" });
+        continue;
+      }
+
+      if (oldResult.contentHash === newResult.contentHash || isTooSimilar(oldResult.content, newResult.content)) {
+        skipped.push({ slug: svc.slug, reason: "no_meaningful_diff" });
+        continue;
+      }
+
+      const existingHashes = await db
+        .select({ contentHash: snapshots.contentHash })
+        .from(snapshots)
+        .where(and(
+          eq(snapshots.serviceId, svc.id),
+          eq(snapshots.url, policyUrl),
+          inArray(snapshots.contentHash, [oldResult.contentHash, newResult.contentHash]),
+        ));
+
+      if (existingHashes.length >= 2) {
+        skipped.push({ slug: svc.slug, reason: "already_backfilled" });
+        continue;
+      }
+
+      const oldSnapshotId = crypto.randomUUID();
+      const newSnapshotId = crypto.randomUUID();
+
+      await db.insert(snapshots).values([
+        {
+          id: oldSnapshotId,
+          serviceId: svc.id,
+          url: policyUrl,
+          contentHash: oldResult.contentHash,
+          content: oldResult.content,
+          wordCount: oldResult.wordCount,
+          fetchedAt: pair.oldAt,
+        },
+        {
+          id: newSnapshotId,
+          serviceId: svc.id,
+          url: policyUrl,
+          contentHash: newResult.contentHash,
+          content: newResult.content,
+          wordCount: newResult.wordCount,
+          fetchedAt: pair.newAt,
+        },
+      ]);
+
+      const diff = computeDiff(oldResult.content, newResult.content);
+      const summary = await summarize(svc.name, diff.sections, {
+        LLM_PROVIDER: c.env.LLM_PROVIDER,
+        GROQ_API_KEY: c.env.GROQ_API_KEY,
+        GROQ_MODEL: c.env.GROQ_MODEL,
+        OPENAI_API_KEY: c.env.OPENAI_API_KEY,
+        OPENAI_MODEL: c.env.OPENAI_MODEL,
+        ANTHROPIC_API_KEY: c.env.ANTHROPIC_API_KEY,
+        ANTHROPIC_MODEL: c.env.ANTHROPIC_MODEL,
+      });
+      const discoveredAt = new Date();
+      const historicalRange = `${pair.oldAt.toISOString().slice(0, 10)} → ${pair.newAt.toISOString().slice(0, 10)}`;
+
+      const [created] = await db.insert(changes).values({
+        id: crypto.randomUUID(),
+        serviceId: svc.id,
+        snapshotOldId: oldSnapshotId,
+        snapshotNewId: newSnapshotId,
+        changeType: svc.tosUrl ? "TOS_UPDATE" : "PRIVACY_UPDATE",
+        severity: summary.severity,
+        title: summary.title,
+        summary: `${summary.summary} (Historical source: ${historicalRange})`,
+        diffHtml: diff.diffHtml,
+        sectionsChanged: diff.sectionsChanged,
+        wordsAdded: diff.wordsAdded,
+        wordsRemoved: diff.wordsRemoved,
+        detectedAt: discoveredAt,
+      }).returning({ id: changes.id });
+
+      if (created?.id) {
+        inserted.push({
+          slug: svc.slug,
+          severity: summary.severity,
+          title: summary.title,
+          date: discoveredAt.toISOString(),
+        });
+      }
+    } catch (err: any) {
+      console.error("backfill-real error", svc.slug, err);
+      skipped.push({ slug: svc.slug, reason: `error:${err?.message || "unknown"}` });
+    }
+  }
+
+  return c.json({
+    message: `Backfill complete: ${inserted.length} real changes inserted`,
+    inserted,
+    skipped,
+  });
+});
+
+type WaybackPair = {
+  oldAt: Date;
+  newAt: Date;
+  oldArchiveUrl: string;
+  newArchiveUrl: string;
+};
+
+async function getWaybackPair(url: string, daysBack: number): Promise<WaybackPair | null> {
+  const from = new Date(Date.now() - daysBack * 86400000);
+  const fromStr = fmtWaybackDate(from);
+  const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=timestamp,original,statuscode,mimetype&filter=statuscode:200&filter=mimetype:text/html&collapse=digest&from=${fromStr}&limit=8`;
+
+  const resp = await fetch(cdxUrl, {
+    headers: { "User-Agent": "ToSMonitor/1.0 (+https://tosmonitor.inksky.net)" },
+  });
+  if (!resp.ok) return null;
+
+  const data = await resp.json() as string[][];
+  if (!Array.isArray(data) || data.length < 3) return null;
+
+  // First row is header, choose the last two captures for real historical delta
+  const rows = data.slice(1);
+  const oldRow = rows[rows.length - 2];
+  const newRow = rows[rows.length - 1];
+  if (!oldRow || !newRow) return null;
+
+  const oldTs = oldRow[0];
+  const newTs = newRow[0];
+  const original = newRow[1] || url;
+  if (!oldTs || !newTs) return null;
+
+  return {
+    oldAt: parseWaybackTimestamp(oldTs),
+    newAt: parseWaybackTimestamp(newTs),
+    oldArchiveUrl: `https://web.archive.org/web/${oldTs}/${original}`,
+    newArchiveUrl: `https://web.archive.org/web/${newTs}/${original}`,
+  };
+}
+
+function fmtWaybackDate(d: Date): string {
+  const y = d.getUTCFullYear().toString();
+  const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = d.getUTCDate().toString().padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+function parseWaybackTimestamp(ts: string): Date {
+  // YYYYMMDDhhmmss
+  const y = Number(ts.slice(0, 4));
+  const m = Number(ts.slice(4, 6)) - 1;
+  const d = Number(ts.slice(6, 8));
+  const hh = Number(ts.slice(8, 10));
+  const mm = Number(ts.slice(10, 12));
+  const ss = Number(ts.slice(12, 14));
+  return new Date(Date.UTC(y, m, d, hh, mm, ss));
+}
 
 /* ── Catch-all 404 ─────────────────────────────────── */
 app.notFound((c) => c.json({ detail: "Not found" }, 404));
