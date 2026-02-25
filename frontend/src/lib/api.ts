@@ -242,6 +242,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return apiFetch("/api/changes/dashboard/stats");
 }
 
+// ── Warmup (trigger scan if stale) ──────────────────────────
+
+export async function warmup(): Promise<{
+  status: string;
+  scan_triggered: boolean;
+  total_changes: number;
+  total_services: number;
+}> {
+  return apiFetch("/api/warmup");
+}
+
 // ── Suggestions ─────────────────────────────────────────────
 
 export async function suggestService(payload: {

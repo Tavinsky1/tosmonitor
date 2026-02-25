@@ -54,22 +54,33 @@ export async function fetchPage(
 
 /** Extract meaningful text from HTML — strip nav, footer, script, style */
 function extractText(html: string): string {
-  // Remove script, style, nav, footer, header, noscript blocks
   let text = html;
-  for (const tag of ["script", "style", "nav", "footer", "header", "noscript", "svg", "iframe"]) {
-    text = text.replace(new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, "gi"), " ");
+
+  // Remove blocks that never contain policy text
+  for (const tag of ["script", "style", "nav", "footer", "header", "noscript", "svg", "iframe", "form"]) {
+    // Use a greedy regex per tag — *? can cut off at nested closing tags
+    const re = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi");
+    text = text.replace(re, " ");
   }
   // Remove HTML comments
   text = text.replace(/<!--[\s\S]*?-->/g, " ");
-  // Try to find main content area
-  const mainMatch = text.match(/<(?:main|article)[^>]*>([\s\S]*?)<\/(?:main|article)>/i);
-  if (mainMatch) {
-    text = mainMatch[1];
+
+  // Try to find the LAST <main> or <article> — many pages have multiple;
+  // the legal content is usually the deepest/last one.
+  const mainBlocks = [...text.matchAll(/<(?:main|article)\b[^>]*>([\s\S]*?)<\/(?:main|article)>/gi)];
+  if (mainBlocks.length > 0) {
+    // Pick the longest match (most content)
+    let best = mainBlocks[0][1];
+    for (const m of mainBlocks) {
+      if (m[1].length > best.length) best = m[1];
+    }
+    text = best;
   } else {
-    // Try content div
-    const contentMatch = text.match(/<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-    if (contentMatch) text = contentMatch[1];
+    // Fallback: grab <body> content if present
+    const bodyMatch = text.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
+    if (bodyMatch) text = bodyMatch[1];
   }
+
   // Strip remaining tags
   text = text.replace(/<[^>]+>/g, " ");
   // Decode common entities
@@ -79,9 +90,16 @@ function extractText(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#\d+;/g, " ");
   // Normalize whitespace
   text = text.replace(/\s+/g, " ").trim();
+
+  // Strip dynamic noise: copyright years, "last updated" dates, cache-busters
+  text = text.replace(/©\s*\d{4}/g, "©YYYY");
+  text = text.replace(/(last\s+(?:updated|modified|revised))\s*:?\s*\w+\s+\d{1,2},?\s*\d{4}/gi, "$1: DATE");
+  text = text.replace(/(effective\s+(?:date|as\s+of))\s*:?\s*\w+\s+\d{1,2},?\s*\d{4}/gi, "$1: DATE");
+
   return text;
 }
 

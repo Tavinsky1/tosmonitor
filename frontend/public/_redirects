@@ -1,4 +1,3 @@
-# Rewrite dynamic detail paths to the static placeholder page
-# CF Pages serves the pre-rendered shell; JS reads the real ID from the URL
-/dashboard/changes/*   /dashboard/changes/_   200
-/dashboard/services/*  /dashboard/services/_  200
+# Dynamic routes: rewrite detail pages to the pre-rendered shell
+/dashboard/changes/:id  /dashboard/changes/_  200
+/services/:slug         /services/stripe      200

@@ -1,7 +1,9 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -15,6 +17,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  // Cold warmup: trigger a background scan if data is stale
+  useEffect(() => {
+    fetch(`${API_URL}/api/warmup`).catch(() => {});
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

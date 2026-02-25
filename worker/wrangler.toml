@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
 
-# Cron trigger: run scraper every 2 hours (batched, 10 services per run)
+# Cron trigger: run scraper every hour (15 services per run, ~3h full cycle)
 [triggers]
-crons = ["0 */2 * * *"]
+crons = ["0 * * * *"]
 
 workers_dev = true
 
@@ -13,7 +13,7 @@ workers_dev = true
 APP_NAME = "ToS Monitor"
 APP_URL = "https://tosmonitor.inksky.net"
 LLM_PROVIDER = "groq"
-GROQ_MODEL = "llama-3.1-70b-versatile"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 OPENAI_MODEL = "gpt-4o-mini"
 ANTHROPIC_MODEL = "claude-haiku-4-20250514"
 SCRAPE_INTERVAL_HOURS = "6"

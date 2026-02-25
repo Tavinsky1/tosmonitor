@@ -47,17 +47,25 @@ export async function summarize(
   const providers = getProviderOrder(env);
   for (const provider of providers) {
     try {
+      console.log(`[summarizer] trying ${provider} for ${serviceName}`);
       const result = await callProvider(provider, SYSTEM_PROMPT, userPrompt, env);
-      if (result) return result;
-    } catch (err) {
-      console.error(`LLM ${provider} failed:`, err);
+      if (result) {
+        console.log(`[summarizer] ${provider} returned: ${result.severity} - ${result.title}`);
+        return result;
+      }
+    } catch (err: any) {
+      console.error(`LLM ${provider} failed for ${serviceName}:`, err?.message || err);
     }
   }
 
-  // Fallback: no LLM available
+  // Fallback: no LLM available — produce a reasonable title from the diff
+  console.warn(`[summarizer] ALL providers failed for ${serviceName}, using fallback`);
+  const firstNew = sections[0]?.newText?.slice(0, 200) || "";
+  const keywords = firstNew.match(/\b(data|privacy|arbitration|liability|pricing|payment|cookie|consent|security|ai|training|sharing|collection|retention|transfer)\b/gi);
+  const topic = keywords?.length ? keywords.slice(0, 2).join(", ") : "terms";
   return {
-    title: `${serviceName} policy updated`,
-    summary: `A change was detected in ${serviceName}'s policy documents. ${sections.length} section(s) were modified.`,
+    title: `${serviceName} updated ${topic}-related policy language`,
+    summary: `A change was detected in ${serviceName}'s policy documents. ${sections.length} section(s) were modified with new language around ${topic}.`,
     severity: "MINOR",
   };
 }

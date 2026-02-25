@@ -7,12 +7,11 @@ import servicesRoutes from "./routes/services";
 import billingRoutes from "./routes/billing";
 import suggestionsRoutes from "./routes/suggestions";
 import { runFullScan } from "./services/scheduler";
-import { fetchPage } from "./services/fetcher";
-import { computeDiff, isTooSimilar } from "./services/differ";
 import { summarize } from "./services/summarizer";
 import { getDb } from "./db/client";
-import { alerts, changes, services, snapshots } from "./db/schema";
-import { and, eq, desc, count as countFn, inArray, like, or } from "drizzle-orm";
+import { changes, services, snapshots } from "./db/schema";
+import { eq, desc, count as countFn, like } from "drizzle-orm";
+import { computeDiff } from "./services/differ";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -55,239 +54,151 @@ app.get("/api/health", async (c) => {
 
 /* ── Admin: trigger scan ───────────────────────────── */
 app.post("/api/admin/scan", async (c) => {
-  // Fire-and-forget scan in waitUntil
   const env = c.env;
   c.executionCtx.waitUntil(runFullScan(env));
-  return c.json({ message: "Scan started", status: "running" });
+  return c.json({ message: "Full scan started", status: "running" });
 });
 
-/* ── Admin: seed demo data ─────────────────────────── */
-app.post("/api/admin/seed-demo", async (c) => {
-  return c.json({
-    detail: "Demo seed disabled. Use /api/admin/backfill-real for real historical data.",
-  }, 410);
-});
-
-/* ── Admin: backfill real historical changes ───────── */
-app.post("/api/admin/backfill-real", async (c) => {
+/* ── Public warmup: trigger scan if stale, return latest stats ── */
+app.get("/api/warmup", async (c) => {
   const db = getDb(c.env.DATABASE_URL);
-  const timeoutMs = (parseInt(c.env.SCRAPE_TIMEOUT_SECONDS || "30", 10) || 30) * 1000;
-  const maxServices = Math.max(1, Math.min(8, parseInt(c.req.query("limit") || "5", 10) || 5));
-  const daysBack = Math.max(30, Math.min(3650, parseInt(c.req.query("days") || "730", 10) || 730));
-  const cleanDemo = c.req.query("clean_demo") !== "false";
-  const slugsParam = (c.req.query("slugs") || "").trim();
-  const slugFilter = slugsParam
-    ? new Set(slugsParam.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))
-    : null;
 
-  if (cleanDemo) {
-    const demoSnapshotRows = await db
-      .select({ id: snapshots.id })
-      .from(snapshots)
-      .where(like(snapshots.url, "https://example.com/%"));
-
-    const demoSnapshotIds = demoSnapshotRows.map((r) => r.id);
-    if (demoSnapshotIds.length > 0) {
-      await db.delete(alerts);
-      await db.delete(changes).where(or(
-        inArray(changes.snapshotOldId, demoSnapshotIds),
-        inArray(changes.snapshotNewId, demoSnapshotIds),
-      ));
-      await db.delete(snapshots).where(inArray(snapshots.id, demoSnapshotIds));
-    }
-  }
-
-  let svcs = await db
-    .select()
+  // Check when we last scanned anything
+  const [latest] = await db
+    .select({ lastChecked: services.lastCheckedAt })
     .from(services)
     .where(eq(services.isActive, true))
-    .orderBy(services.lastCheckedAt)
-    .limit(60);
+    .orderBy(desc(services.lastCheckedAt))
+    .limit(1);
 
-  if (slugFilter) {
-    svcs = svcs.filter((s) => slugFilter.has(s.slug.toLowerCase()));
+  const lastChecked = latest?.lastChecked;
+  const staleMs = 3 * 60 * 60 * 1000; // 3 hours
+  const isStale = !lastChecked || (Date.now() - new Date(lastChecked).getTime()) > staleMs;
+
+  if (isStale) {
+    // Fire-and-forget a full scan
+    c.executionCtx.waitUntil(runFullScan(c.env));
   }
 
-  const targets = svcs
-    .filter((s) => !!(s.tosUrl || s.privacyUrl))
-    .slice(0, maxServices);
+  // Return current change count so frontend knows what to expect
+  const [changeCount] = await db.select({ count: countFn() }).from(changes);
+  const [serviceCount] = await db.select({ count: countFn() }).from(services).where(eq(services.isActive, true));
 
-  const inserted: Array<{ slug: string; severity: string; title: string; date: string }> = [];
-  const skipped: Array<{ slug: string; reason: string }> = [];
+  return c.json({
+    status: "ok",
+    scan_triggered: isStale,
+    last_checked: lastChecked,
+    total_changes: Number(changeCount.count),
+    total_services: Number(serviceCount.count),
+  });
+});
 
-  for (const svc of targets) {
-    const policyUrl = svc.tosUrl || svc.privacyUrl;
-    if (!policyUrl) {
-      skipped.push({ slug: svc.slug, reason: "no_policy_url" });
-      continue;
-    }
+/* ── Admin: test LLM connection ────────────────────── */
+app.get("/api/admin/test-llm", async (c) => {
+  const env = c.env;
+  try {
+    const testSections = [{
+      oldText: "We may share your data with third-party partners.",
+      newText: "We will share your data with third-party partners and use it to train AI models.",
+      type: "modified" as const,
+    }];
+    const result = await summarize("TestService", testSections, {
+      LLM_PROVIDER: env.LLM_PROVIDER,
+      GROQ_API_KEY: env.GROQ_API_KEY,
+      GROQ_MODEL: env.GROQ_MODEL,
+      OPENAI_API_KEY: env.OPENAI_API_KEY,
+      OPENAI_MODEL: env.OPENAI_MODEL,
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
+    });
+    return c.json({ status: "ok", model: env.GROQ_MODEL, result });
+  } catch (err: any) {
+    return c.json({ status: "error", error: err?.message || String(err) }, 500);
+  }
+});
 
+/* ── Admin: re-summarize all existing changes with LLM ── */
+app.post("/api/admin/resummarize", async (c) => {
+  const db = getDb(c.env.DATABASE_URL);
+  const env = c.env;
+
+  // Only re-summarize changes that still have the generic fallback title
+  const allChanges = await db
+    .select({
+      id: changes.id,
+      serviceId: changes.serviceId,
+      snapshotOldId: changes.snapshotOldId,
+      snapshotNewId: changes.snapshotNewId,
+      title: changes.title,
+    })
+    .from(changes);
+
+  const generic = allChanges.filter((ch) => ch.title.endsWith("policy updated"));
+  const batch = generic.slice(0, 8); // Process max 8 per call to stay within time limit
+
+  // Run inline (not waitUntil) so we can return real results
+  let updated = 0;
+  let failed = 0;
+
+  for (const ch of batch) {
     try {
-      const pair = await getWaybackPair(policyUrl, daysBack);
-      if (!pair) {
-        skipped.push({ slug: svc.slug, reason: "no_wayback_pair" });
-        continue;
+      const [svc] = await db.select({ name: services.name }).from(services).where(eq(services.id, ch.serviceId));
+      if (!svc) { failed++; continue; }
+
+      const [oldSnap] = await db.select({ content: snapshots.content }).from(snapshots).where(eq(snapshots.id, ch.snapshotOldId));
+      const [newSnap] = await db.select({ content: snapshots.content }).from(snapshots).where(eq(snapshots.id, ch.snapshotNewId));
+      if (!oldSnap || !newSnap) {
+        console.log(`[resummarize] skip ${ch.id} - missing snapshots`);
+        failed++; continue;
       }
 
-      const [oldResult, newResult] = await Promise.all([
-        fetchPage(pair.oldArchiveUrl, timeoutMs),
-        fetchPage(pair.newArchiveUrl, timeoutMs),
-      ]);
-
-      if (!oldResult || !newResult) {
-        skipped.push({ slug: svc.slug, reason: "archive_fetch_failed" });
-        continue;
+      const diff = computeDiff(oldSnap.content, newSnap.content);
+      if (!diff.sections.length) {
+        console.log(`[resummarize] skip ${ch.id} - no diff sections`);
+        failed++; continue;
       }
 
-      if (oldResult.contentHash === newResult.contentHash || isTooSimilar(oldResult.content, newResult.content)) {
-        skipped.push({ slug: svc.slug, reason: "no_meaningful_diff" });
-        continue;
-      }
-
-      const existingHashes = await db
-        .select({ contentHash: snapshots.contentHash })
-        .from(snapshots)
-        .where(and(
-          eq(snapshots.serviceId, svc.id),
-          eq(snapshots.url, policyUrl),
-          inArray(snapshots.contentHash, [oldResult.contentHash, newResult.contentHash]),
-        ));
-
-      if (existingHashes.length >= 2) {
-        skipped.push({ slug: svc.slug, reason: "already_backfilled" });
-        continue;
-      }
-
-      const oldSnapshotId = crypto.randomUUID();
-      const newSnapshotId = crypto.randomUUID();
-
-      await db.insert(snapshots).values([
-        {
-          id: oldSnapshotId,
-          serviceId: svc.id,
-          url: policyUrl,
-          contentHash: oldResult.contentHash,
-          content: oldResult.content,
-          wordCount: oldResult.wordCount,
-          fetchedAt: pair.oldAt,
-        },
-        {
-          id: newSnapshotId,
-          serviceId: svc.id,
-          url: policyUrl,
-          contentHash: newResult.contentHash,
-          content: newResult.content,
-          wordCount: newResult.wordCount,
-          fetchedAt: pair.newAt,
-        },
-      ]);
-
-      const diff = computeDiff(oldResult.content, newResult.content);
       const summary = await summarize(svc.name, diff.sections, {
-        LLM_PROVIDER: c.env.LLM_PROVIDER,
-        GROQ_API_KEY: c.env.GROQ_API_KEY,
-        GROQ_MODEL: c.env.GROQ_MODEL,
-        OPENAI_API_KEY: c.env.OPENAI_API_KEY,
-        OPENAI_MODEL: c.env.OPENAI_MODEL,
-        ANTHROPIC_API_KEY: c.env.ANTHROPIC_API_KEY,
-        ANTHROPIC_MODEL: c.env.ANTHROPIC_MODEL,
+        LLM_PROVIDER: env.LLM_PROVIDER,
+        GROQ_API_KEY: env.GROQ_API_KEY,
+        GROQ_MODEL: env.GROQ_MODEL,
+        OPENAI_API_KEY: env.OPENAI_API_KEY,
+        OPENAI_MODEL: env.OPENAI_MODEL,
+        ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+        ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
       });
-      const discoveredAt = new Date();
-      const historicalRange = `${pair.oldAt.toISOString().slice(0, 10)} → ${pair.newAt.toISOString().slice(0, 10)}`;
 
-      const [created] = await db.insert(changes).values({
-        id: crypto.randomUUID(),
-        serviceId: svc.id,
-        snapshotOldId: oldSnapshotId,
-        snapshotNewId: newSnapshotId,
-        changeType: svc.tosUrl ? "TOS_UPDATE" : "PRIVACY_UPDATE",
-        severity: summary.severity,
+      await db.update(changes).set({
         title: summary.title,
-        summary: `${summary.summary} (Historical source: ${historicalRange})`,
-        diffHtml: diff.diffHtml,
-        sectionsChanged: diff.sectionsChanged,
-        wordsAdded: diff.wordsAdded,
-        wordsRemoved: diff.wordsRemoved,
-        detectedAt: discoveredAt,
-      }).returning({ id: changes.id });
+        summary: summary.summary,
+        severity: summary.severity,
+      }).where(eq(changes.id, ch.id));
 
-      if (created?.id) {
-        inserted.push({
-          slug: svc.slug,
-          severity: summary.severity,
-          title: summary.title,
-          date: discoveredAt.toISOString(),
-        });
-      }
+      console.log(`[resummarize] ✓ ${svc.name}: ${summary.severity} - ${summary.title}`);
+      updated++;
+      await new Promise((r) => setTimeout(r, 1000));
     } catch (err: any) {
-      console.error("backfill-real error", svc.slug, err);
-      skipped.push({ slug: svc.slug, reason: `error:${err?.message || "unknown"}` });
+      console.error(`[resummarize] ✗ change ${ch.id}:`, err?.message);
+      failed++;
     }
   }
 
   return c.json({
-    message: `Backfill complete: ${inserted.length} real changes inserted`,
-    inserted,
-    skipped,
+    status: "done",
+    updated,
+    failed,
+    remaining: generic.length - batch.length,
+    total_generic: generic.length,
+    total_changes: allChanges.length,
   });
 });
 
-type WaybackPair = {
-  oldAt: Date;
-  newAt: Date;
-  oldArchiveUrl: string;
-  newArchiveUrl: string;
-};
-
-async function getWaybackPair(url: string, daysBack: number): Promise<WaybackPair | null> {
-  const from = new Date(Date.now() - daysBack * 86400000);
-  const fromStr = fmtWaybackDate(from);
-  const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=timestamp,original,statuscode,mimetype&filter=statuscode:200&filter=mimetype:text/html&collapse=digest&from=${fromStr}&limit=8`;
-
-  const resp = await fetch(cdxUrl, {
-    headers: { "User-Agent": "ToSMonitor/1.0 (+https://tosmonitor.inksky.net)" },
-  });
-  if (!resp.ok) return null;
-
-  const data = await resp.json() as string[][];
-  if (!Array.isArray(data) || data.length < 3) return null;
-
-  // First row is header, choose the last two captures for real historical delta
-  const rows = data.slice(1);
-  const oldRow = rows[rows.length - 2];
-  const newRow = rows[rows.length - 1];
-  if (!oldRow || !newRow) return null;
-
-  const oldTs = oldRow[0];
-  const newTs = newRow[0];
-  const original = newRow[1] || url;
-  if (!oldTs || !newTs) return null;
-
-  return {
-    oldAt: parseWaybackTimestamp(oldTs),
-    newAt: parseWaybackTimestamp(newTs),
-    oldArchiveUrl: `https://web.archive.org/web/${oldTs}/${original}`,
-    newArchiveUrl: `https://web.archive.org/web/${newTs}/${original}`,
-  };
-}
-
-function fmtWaybackDate(d: Date): string {
-  const y = d.getUTCFullYear().toString();
-  const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
-  const day = d.getUTCDate().toString().padStart(2, "0");
-  return `${y}${m}${day}`;
-}
-
-function parseWaybackTimestamp(ts: string): Date {
-  // YYYYMMDDhhmmss
-  const y = Number(ts.slice(0, 4));
-  const m = Number(ts.slice(4, 6)) - 1;
-  const d = Number(ts.slice(6, 8));
-  const hh = Number(ts.slice(8, 10));
-  const mm = Number(ts.slice(10, 12));
-  const ss = Number(ts.slice(12, 14));
-  return new Date(Date.UTC(y, m, d, hh, mm, ss));
-}
+/* ── Admin: clean up false-positive "No changes" entries ── */
+app.delete("/api/admin/cleanup", async (c) => {
+  const db = getDb(c.env.DATABASE_URL);
+  const deleted = await db.delete(changes).where(like(changes.title, "No %")).returning({ id: changes.id });
+  return c.json({ status: "ok", deleted: deleted.length });
+});
 
 /* ── Catch-all 404 ─────────────────────────────────── */
 app.notFound((c) => c.json({ detail: "Not found" }, 404));

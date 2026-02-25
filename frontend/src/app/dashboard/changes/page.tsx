@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getChanges } from "@/lib/api";
+import { getChanges, warmup } from "@/lib/api";
 import { ChangeCard } from "@/components/ChangeCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Filter } from "lucide-react";
 import clsx from "clsx";
 
@@ -21,6 +21,11 @@ export default function ChangesPage() {
   const [severity, setSeverity] = useState("all");
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
+
+  // Cold warmup: trigger a scan if data is stale
+  useEffect(() => {
+    warmup().catch(() => {});
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["changes", severity, days, page],

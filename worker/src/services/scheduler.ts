@@ -12,13 +12,13 @@ import { sendAlertsForChanges } from "./alerts";
 import type { Env, ChangeType } from "../lib/types";
 
 export async function runFullScan(env: Env) {
-  console.log("Starting batched scan...");
+  console.log("Starting full scan...");
   const db = getDb(env.DATABASE_URL);
   const timeoutMs = parseInt(env.SCRAPE_TIMEOUT_SECONDS) * 1000 || 30000;
-  const BATCH_SIZE = 10;       // services per cron invocation
-  const CONCURRENCY = 3;       // parallel fetches
+  const BATCH_SIZE = 15;       // services per invocation (CF Workers subrequest limit)
+  const CONCURRENCY = 5;       // parallel fetches
 
-  // Pick the N least-recently-checked active services
+  // Scan the BATCH_SIZE least-recently-checked active services
   const allServices = await db
     .select()
     .from(services)

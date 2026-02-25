@@ -104,5 +104,5 @@ export function isTooSimilar(oldContent: string, newContent: string): boolean {
   for (const part of changes) {
     if (!part.added && !part.removed) sameLen += part.value.length;
   }
-  return sameLen / maxLen > 0.995;
+  return sameLen / maxLen > 0.97;
 }
