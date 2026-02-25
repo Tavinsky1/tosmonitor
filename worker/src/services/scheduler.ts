@@ -136,6 +136,12 @@ async function checkUrl(
     ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
   });
 
+  // Skip false positives: LLM says nothing actually changed
+  if (summary.title.toLowerCase().startsWith("no change") || summary.title.toLowerCase().startsWith("no update")) {
+    console.log(`${svc.slug}: LLM says no real change, skipping`);
+    return null;
+  }
+
   // Create change record
   const [change] = await db.insert(changes).values({
     id: crypto.randomUUID(),

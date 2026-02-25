@@ -1,3 +1,6 @@
 # Dynamic routes: rewrite detail pages to the pre-rendered shell
-/dashboard/changes/:id  /dashboard/changes/_  200
-/services/:slug         /services/stripe      200
+# Need both with and without trailing slash (trailingSlash: true in next.config)
+/dashboard/changes/:id/  /dashboard/changes/_/  200
+/dashboard/changes/:id   /dashboard/changes/_/  200
+/services/:slug/         /services/stripe/      200
+/services/:slug          /services/stripe/      200
